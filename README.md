@@ -5,7 +5,7 @@ Perlmutter login node** and gives Claude Code safe, knowledge-encoded tools for 
 NERSC: validated SLURM submission, job postmortems, queue strategy and wait-time
 forecasts, persistent interactive allocations, and storage hygiene — the invisible
 knowledge most users learn the expensive way. Plugin packaging (one-command install +
-a `/nersc` skill) lands in Phase 2 (NM-6); until then, register the server directly.
+a `/nersc` skill) lands in v0.2 (NM-6); until then, register the server directly.
 
 ## Install (on Perlmutter)
 
