@@ -27,10 +27,22 @@ build_venv() {
     # Known limitation: rebuilding is not atomic, so a rebuild can stomp a venv
     # a still-running server holds open. The old tmp+mv pattern was unusable
     # because venv shebangs embed the build path.
-    rm -rf "$VENV"
-    python3 -m venv "$VENV" || die "failed to create virtualenv at $VENV"
-    "$VENV/bin/pip" install --quiet --upgrade pip || die "failed to upgrade pip"
-    "$VENV/bin/pip" install --quiet -e "$ROOT" || die "failed to install nersc-mcp from $ROOT"
+    if ! rm -rf "$VENV"; then
+        echo "failed to remove existing virtualenv at $VENV" >&2
+        return 1
+    fi
+    if ! python3 -m venv "$VENV"; then
+        echo "failed to create virtualenv at $VENV" >&2
+        return 1
+    fi
+    if ! "$VENV/bin/pip" install --quiet --upgrade pip; then
+        echo "failed to upgrade pip" >&2
+        return 1
+    fi
+    if ! "$VENV/bin/pip" install --quiet -e "$ROOT"; then
+        echo "failed to install nersc-mcp from $ROOT" >&2
+        return 1
+    fi
 }
 
 sanity_ok() {
@@ -41,7 +53,7 @@ command -v python3 >/dev/null 2>&1 || die "python3 not found on PATH"
 mkdir -p "$DATA" || die "cannot create data directory: $DATA"
 
 if [ "$refresh" -eq 1 ] || [ ! -x "$VENV/bin/nersc-mcp" ]; then
-    build_venv
+    build_venv || die "bootstrap build failed: check python3 --version (mcp needs >=3.10), disk space in $DATA, and network"
 fi
 
 if [ ! -x "$VENV/bin/nersc-mcp" ]; then
@@ -49,9 +61,12 @@ if [ ! -x "$VENV/bin/nersc-mcp" ]; then
 fi
 
 if ! sanity_ok; then
-    build_venv
+    if [ "$refresh" -eq 1 ]; then
+        die "venv was stale or broken and the automatic rebuild failed — remove $VENV or run with --refresh; if this persists, python3 may be too old (mcp needs >=3.10)"
+    fi
+    build_venv || die "venv was stale or broken and the automatic rebuild failed — remove $VENV or run with --refresh; if this persists, python3 may be too old (mcp needs >=3.10)"
     if ! sanity_ok; then
-        die "stale or broken venv at $VENV; automatic rebuild failed — remove it or run with --refresh"
+        die "venv was stale or broken and the automatic rebuild failed — remove $VENV or run with --refresh; if this persists, python3 may be too old (mcp needs >=3.10)"
     fi
 fi
 
