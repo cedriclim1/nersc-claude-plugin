@@ -1,0 +1,170 @@
+# NERSC MCP — Design Specification (v1)
+
+**Status:** approved design, Phase 1 (NM-4). Changes to §2 (invariants) or §4 (tool
+semantics) require explicit user approval — record the approval in the ticket before
+editing this file.
+
+This document is written to be executed by agents of varying capability. If you are an
+agent working on this codebase: **read §2 and §7 before writing any code, and re-read the
+acceptance criteria for a tool before marking its ticket done.** When this spec and your
+intuition disagree, the spec wins; if you believe the spec is wrong, file an issue on the
+Loop board and stop — do not improvise.
+
+---
+
+## 1. What this is
+
+An MCP (Model Context Protocol) server that runs **natively on a NERSC Perlmutter login
+node** and gives Claude Code (or any MCP client) safe, knowledge-encoded tools for using
+NERSC: submitting and diagnosing SLURM jobs, choosing queues, allocating interactive
+sessions, and keeping data/storage hygiene. The target user does:
+
+```
+ssh perlmutter.nersc.gov
+claude          # Claude Code, with nersc-mcp registered as a stdio MCP server
+```
+
+The server wraps the *invisible knowledge* documented in the project wiki (concepts:
+`slurm-jobs`, `qos-policy`, `friction-points`, `underused-features`) so users don't need
+to learn it the expensive way.
+
+**Non-goals for v1** (do not build these, even if they seem easy):
+- No SSH bridging inside the server (the server IS on NERSC; decision `dec_mr4h81u2fqq`).
+- No Superfacility API backend (Tier 3; revisit post-v1).
+- No container image-building tools (Tier 2 / v2 — `image_build`, `image_migrate`).
+- No Globus/DTN transfer execution (v2; v1 only *advises* in `check_storage`).
+- No workflow-manager reimplementation (advice only).
+- No file deletion or modification tools of any kind.
+
+## 2. Hard invariants (safety rails — NEVER weaken these)
+
+These are load-bearing. Each maps to documented evidence (wiki cite in parens). A change
+to any invariant requires user sign-off; a PR that weakens one must be rejected.
+
+- **I1 — No compute on login nodes.** No tool may execute reconstruction, training,
+  scoring, or any CPU/GPU-heavy work in the server process. Tools run `sbatch`, `salloc`,
+  `squeue`, `sacct`, `sinfo`, `sqs`, quota commands — nothing else heavy. Even "tiny"
+  compute is banned (friction-points §1; tomo lesson `no-cpu-recon-on-login`).
+- **I2 — Minimal process footprint.** The server spawns no background pollers, watchers,
+  or monitor loops. Every subprocess is short-lived (default timeout 30 s) and reaped.
+  A login-node process-budget kill takes the whole session down (friction-points §1).
+- **I3 — Submission completeness.** `submit_job` always emits `--constraint`, `--qos`,
+  `--time`, `--nodes`, `--account`; never relies on SLURM defaults (constraint has no
+  default and debug-QOS is the silent fallback — slurm-jobs, qos-policy). GPU jobs always
+  carry an explicit GPU request (`-G`/`--gpus*`).
+- **I4 — Never cancel aged work silently.** `cancel_job` refuses PENDING jobs older than
+  60 min unless `force=true`, and the refusal message explains queue-age priority
+  (friction-points §3; lesson `queue-age-is-priority`).
+- **I5 — Destructive ops are explicit.** Anything that cancels/changes existing state
+  requires a `confirm=true` parameter. Read-only tools must be genuinely side-effect-free.
+- **I6 — Structured output.** Every tool returns JSON: `{ok, data, warnings[], hints[]}`.
+  Raw SLURM text goes in `data.raw` only as a supplement. Warnings carry the encoded
+  knowledge (e.g. "debug QOS caps at 30 min — use interactive for 4 h").
+- **I7 — No flock on CFS.** Any locking the server ever needs uses atomic `mkdir`
+  spin-locks (lesson `flock-unsupported-on-cfs`).
+- **I8 — stdlib-only runtime deps** beyond the `mcp` package. No heavy imports at server
+  startup (login-node budget, I2).
+
+## 3. Architecture
+
+- **Language/runtime:** Python ≥3.9 (Perlmutter's `module load python` provides it),
+  official `mcp` Python SDK, **stdio transport only**.
+- **Layout:**
+  ```
+  nersc-mcp/
+    pyproject.toml          # deps: mcp; dev: pytest
+    src/nersc_mcp/
+      server.py             # FastMCP app: tool registrations only — no logic
+      slurm.py              # subprocess wrappers: run(), parse helpers (pure functions)
+      knowledge.py          # QOS table, node specs, env exports — DATA, not code
+      tools/                # one module per tool, one public function each
+        status.py submit.py jobinfo.py postmortem.py cancel.py
+        queue_advise.py allocate.py storage.py
+    tests/                  # pytest; mock subprocess — tests never call SLURM
+    DESIGN.md  CLAUDE.md  README.md
+  ```
+- **`knowledge.py` is the single source of NERSC facts** (QOS limits, charge factors,
+  memory ceilings, env exports like `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`).
+  Facts cite the wiki concept they came from in a comment. Update facts there, never
+  inline in tools.
+- **Subprocess discipline:** one helper `slurm.run(argv, timeout=30)` — list argv (never
+  `shell=True`), captured output, explicit timeout, non-zero exit → structured error.
+
+## 4. v1 tool surface (8 tools — build exactly these)
+
+Every tool: snake_case name, typed params, docstring = what Claude sees. Acceptance
+criteria (AC) are testable; a tool's ticket is not done until its ACs pass.
+
+1. **`nersc_status()`** — read-only. User's queue (`squeue --me`), recent completions
+   (`sacct` last 24 h), headline system state. AC: returns within 10 s; JSON lists jobs
+   with jobid/name/state/reason/elapsed; works with zero jobs.
+2. **`submit_job(script_body?, spec?, dry_run=False)`** — EITHER validate+submit a
+   user-provided script OR build one from a spec `{nodes, time, constraint, qos, account,
+   gpus?, ntasks_per_node?, command}`. Applies I3; injects affinity defaults
+   (`--cpu-bind=cores`) and known-good env exports; `dry_run=True` returns the exact
+   script without submitting. AC: dry-run of a GPU spec contains `-C gpu`, a `--gpus`
+   line, `--cpu-bind=cores`; submitting without account/time/constraint returns a
+   validation error naming the missing field; a real debug-QOS submit returns a jobid.
+3. **`job_status(jobid)`** — squeue + sacct merge: state, reason (decoded:
+   `QOSMaxJobsPerUserLimit` → "you hit the per-user run limit for this QOS"), start
+   estimate (`squeue --start`), elapsed/limit. AC: pending, running, and finished jobs
+   all return a decoded `state_explained` string.
+4. **`job_postmortem(jobid)`** — sacct exit codes + DerivedExitCode + state → classified
+   cause: `oom | time_limit | node_fail | cancelled | quota | script_error | unknown`,
+   each with a one-line fix hint (e.g. oom → "reduce per-task memory or request more
+   nodes; GPU nodes have ~150 GB usable GPU RAM"). AC: classifier unit-tested against
+   captured sacct fixtures for each category.
+5. **`cancel_job(jobid, confirm=False, force=False)`** — I4+I5 guarded scancel.
+   AC: refuses without confirm; refuses aged pending job without force and explains why.
+6. **`queue_advise(nodes, time_minutes, gpus=0, interactive=False)`** — recommends QOS
+   from the knowledge table with cost estimate (charge formula) and warnings (debug ≤30
+   min, premium 2-4×, preempt min 2 h, shared ≤0.5 node, big-job 50% discount).
+   AC: table-driven tests cover each boundary.
+7. **`allocate_interactive(nodes=1, time="04:00:00", constraint="gpu")`** — runs
+   `salloc ... --no-shell`, returns JID + ready-to-copy usage pattern
+   (`SLURM_JOB_ID=<JID> srun --jobid=<JID> ...`) — the agent-shell ergonomics fix
+   (friction-points §2). AC: returns the granted JID; the response includes the srun
+   pattern verbatim.
+8. **`check_storage(path?)`** — quotas (`showquota`), placement advice for a given need
+   (software → /global/common; job I/O → $SCRATCH with purge warning; shared data → CFS;
+   never $HOME for parallel I/O), flock-on-CFS warning when relevant. AC: advice table
+   unit-tested; quota parse handles the real command output.
+
+## 5. Error handling
+
+- Subprocess timeout/nonzero → `{ok:false, error:{kind, message, raw}}` — never a Python
+  traceback across the MCP boundary.
+- SLURM textual errors are *translated*: the raw line plus a plain-English `hint`.
+- Unknown states pass through as `unknown` with raw text — never guess silently.
+
+## 6. Testing & verification (the gate for every code ticket)
+
+1. **Unit (required, runs anywhere):** `pytest` with mocked `slurm.run` — parser and
+   policy logic only. Target: every tool's AC has a test. No test may invoke real SLURM.
+2. **Integration (from the dev machine):** `tests/integration/mcp_smoke.py` speaks MCP
+   JSON-RPC over stdio to the real server on Perlmutter via
+   `ssh perl "cd /global/cfs/cdirs/m5020/nersc_mcp && ./run-server.sh"` — initialize,
+   tools/list, `nersc_status`, `submit_job(dry_run=True)`, `queue_advise`. Read-only +
+   dry-run only; safe to run any time.
+3. **User-path smoke (before calling a phase done):** on Perlmutter, register the server
+   in Claude Code and exercise one real debug-QOS submit + postmortem. Manual, documented
+   in `README.md`.
+
+## 7. Working agreement for downstream agents (READ THIS)
+
+- **Scope control.** Build only what a claimed NM ticket asks. The v1 tool list is
+  closed: adding, renaming, or removing a tool = spec change = user approval first.
+- **Facts come from the wiki.** If you need a NERSC fact not in `knowledge.py`, it must
+  come from a wiki concept (cite it) or from docs.nersc.gov (then ingest it into the wiki
+  first). Never from your own priors — they are frequently stale for NERSC specifics.
+- **Never test against production.** Real submissions in tests/experiments use debug or
+  interactive QOS, ≤1 node, ≤5 min, and are cancelled (with confirm) when done.
+- **The checklist for adding/altering a tool:** (1) ticket claimed; (2) AC written in the
+  ticket *before* code; (3) logic in `tools/<name>.py`, facts in `knowledge.py`, no logic
+  in `server.py`; (4) unit tests for every AC; (5) integration smoke passes; (6) wiki
+  ticket summary written; (7) review gate + done.
+- **When blocked or surprised** (a command's output doesn't match this spec, a NERSC
+  behavior contradicts the wiki): stop, file a Loop issue, ask. Do not code around it.
+- **Git:** repo `github.com/cedriclim1/nersc-mcp` ("NERSC MCP"). Small commits, imperative
+  messages. For this project only, Claude may be listed as an author. After each session:
+  push, then `ssh perl "cd /global/cfs/cdirs/m5020/nersc_mcp && git pull"` (project rule).
