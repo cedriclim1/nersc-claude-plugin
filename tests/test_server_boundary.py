@@ -19,6 +19,9 @@ VALID_SPEC = {
 
 
 def _decode_tool_result(content):
+    if isinstance(content, tuple):
+        assert len(content) == 2
+        content = content[0]
     if isinstance(content, str):
         return json.loads(content)
     if isinstance(content, list):
