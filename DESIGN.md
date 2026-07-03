@@ -21,6 +21,10 @@ record the approval in the ticket before editing this file.
   I6 envelope preservation wins over nested tools/list schema pre-validation.
   `submit_job.spec` stays documented in the docstring and is validated inside
   the tool body with `SubmitSpec`.
+- 2026-07-03: v0.2 SHIPPED (PR #1 merged) — plugin packaging + /nersc skill,
+  queue_wait_stats, get_job_context/save_job_profile, submit_job UX warnings. 11 tools
+  live; 95 unit tests + MCP stdio smoke green on Perlmutter. Outstanding v0.2 items:
+  NM-7 user-path smoke and the live on-Perlmutter plugin-install validation.
 
 This document is written to be executed by agents of varying capability. If you are an
 agent working on this codebase: **read §2 and §7 before writing any code, and re-read the
@@ -53,7 +57,8 @@ front gate approves the amendment:
   **Permanent** — remote access is the SFAPI executor's job (v0.7), never SSH.
 - No Superfacility API backend (→ **v0.7**, NM-24..27: opt-in executor behind the
   `slurm.run()` seam; native stays primary — decision `dec_mr4l4uv5u5b`).
-- No container image-building tools (→ **v0.3**, NM-8 — `image_build`, `image_migrate`).
+- No container tools (→ **v0.3**, NM-8, 28, 29, 30 — podman-hpc + Shifter run-path,
+  containerized job submission, image visibility, conda→container skill).
 - No Globus/DTN transfer execution (→ **v0.6**, NM-21..23; until then `check_storage`
   only *advises*).
 - No workflow-manager reimplementation. **Permanent** — a bespoke orchestrator would
@@ -214,9 +219,17 @@ criteria (AC) are testable; a tool's ticket is not done until its ACs pass.
    `ssh perl "cd /global/cfs/cdirs/m5020/nersc_mcp && ./run-server.sh"` — initialize,
    tools/list, `nersc_status`, `submit_job(dry_run=True)`, `queue_advise`. Read-only +
    dry-run only; safe to run any time.
-3. **User-path smoke (before calling a phase done):** on Perlmutter, register the server
-   in Claude Code and exercise one real debug-QOS submit + postmortem. Manual, documented
-   in `README.md`.
+3. **User-path smoke (before calling a phase done):** on Perlmutter, register the bare
+   server path with
+   `claude mcp add nersc -- /global/cfs/cdirs/m5020/nersc_mcp/run-server.sh`, then in a
+   live Claude Code session on Perlmutter run this five-call sequence: (1)
+   `nersc_status`; (2) `submit_job` with a spec for a 1-node, 5-min, debug-QOS CPU job
+   running `hostname`; (3) `job_status` until done; (4) `job_postmortem` on that job,
+   expecting `sacct` state `COMPLETED` classified as a non-failure (none of
+   `oom`/`time_limit`/`node_fail`/`cancelled`/`quota`); (5) `cancel_job` denial paths
+   without `confirm`. Guardrail: debug QOS, 1 node, ≤5 min, and never touch other queued
+   jobs. A parallel plugin-path validation covers `/plugin marketplace add` +
+   `/plugin install` + `tools/list == 11` + `/nersc` skill load.
 
 ## 7. Working agreement for downstream agents (READ THIS)
 
@@ -248,8 +261,8 @@ been front-gated.
 
 | phase | scope | tickets | new tools |
 |---|---|---|---|
-| v0.2 — Plugin packaging & queue intelligence | plugin + `/nersc` skill, user-path smoke, queue_wait_stats, submit-job UX context/profile | NM-6, 7, 9, 10 | queue_wait_stats, get_job_context, save_job_profile |
-| v0.3 — Image tools (podman-hpc) | image_build + image_migrate; login-node-limits caution | NM-8 | image_build, image_migrate |
+| v0.2 — Plugin packaging & queue intelligence | plugin + `/nersc` skill, user-path smoke, queue_wait_stats, submit-job UX context/profile (SHIPPED 2026-07-03, PR #1; NM-7 + plugin-install validation pending) | NM-6, 7, 9, 10 | queue_wait_stats, get_job_context, save_job_profile |
+| v0.3 — Container tools (podman-hpc + Shifter run-path) | container build chain + containerized job submission + image visibility + conda→container skill | NM-8, 28, 29, 30 | image_build, image_build_status, image_migrate, image_list, image_pull (+ submit_job container field) |
 | v0.4 — ML & workflow enablement | TensorBoard, HPO/Ray-on-SLURM, distributed training, workflow-engine selector, Jupyter kernels | NM-11..15 | kernel_build |
 | v0.5 — Build doctor & applications | compiler/PrgEnv doctor, math libs, module resolver, license preflight, Darshan/Drishti postmortem | NM-16..20 | module resolver |
 | v0.6 — Data movement (Globus) | placement-aware transfers, laptop↔NERSC via Globus Connect Personal | NM-21..23 | transfer_start, transfer_status |
