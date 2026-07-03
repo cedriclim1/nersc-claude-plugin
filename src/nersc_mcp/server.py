@@ -16,6 +16,7 @@ from .tools.cancel import cancel_job as _cancel
 from .tools.jobinfo import job_status as _job_status
 from .tools.postmortem import job_postmortem as _postmortem
 from .tools.queue_advise import queue_advise as _queue_advise
+from .tools.queue_wait import queue_wait_stats as _queue_wait_stats
 from .tools.status import nersc_status as _status
 from .tools.storage import check_storage as _storage
 from .tools.submit import submit_job as _submit
@@ -63,6 +64,13 @@ def queue_advise(nodes: int, time_minutes: int, gpus: int = 0,
                  interactive: bool = False) -> str:
     """Recommend the right QOS for a job shape and estimate its node-hour charge, with warnings about QOS limits, discounts, and cheaper alternatives."""
     return _j(_queue_advise(nodes, time_minutes, gpus=gpus, interactive=interactive))
+
+
+@app.tool()
+def queue_wait_stats(constraint: str, qos: str, hours: float, nodes: int = 1,
+                     window_days: int = 30) -> str:
+    """Forecast queue wait for a Perlmutter job shape using Iris queue-wait history: returns long-term and previous-day stats plus a plain recommendation. Advice only; failures are structured and should not block submission."""
+    return _j(_queue_wait_stats(constraint, qos, hours, nodes=nodes, window_days=window_days))
 
 
 @app.tool()

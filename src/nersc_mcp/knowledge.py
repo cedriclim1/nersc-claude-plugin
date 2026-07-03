@@ -31,6 +31,69 @@ QOS = {
                 "note": "free but very low priority; only when allocation is exhausted"},
 }
 
+# --- Iris queue-wait QOS names (wiki: s-iris-queuewait) ---------------------
+# User-facing (constraint, qos) pairs map to SLURM/Iris-internal QOS names.
+# Design-probe names documented in DESIGN.md §4.9 (wiki: s-iris-queuewait).
+IRIS_QOS = {
+    ("cpu", "regular"): "regular_1",
+    ("cpu", "debug"): "debug",
+    ("cpu", "interactive"): "interactive",
+    ("cpu", "preempt"): "preempt",
+    ("cpu", "premium"): "premium",
+    ("cpu", "shared"): "shared",
+    ("cpu", "overrun"): "overrun",
+    ("gpu", "regular"): "gpu_regular",
+    ("gpu", "debug"): "gpu_debug",
+    ("gpu", "interactive"): "gpu_interactive",
+    ("gpu", "preempt"): "gpu_preempt",
+    ("gpu", "premium"): "gpu_premium",
+    ("gpu", "shared"): "shared",
+    ("gpu", "overrun"): "overrun",
+    # Live unfiltered 30d probe captured 2026-07-03; response appeared capped
+    # at 1000 rows, so gpu_* rows from the earlier probe may be hidden
+    # in that window (wiki: s-iris-queuewait).
+    ("cpu", "RESERVE"): "RESERVE",
+    ("gpu", "RESERVE"): "RESERVE",
+    ("cpu", "badger"): "badger",
+    ("gpu", "badger"): "badger",
+    ("cpu", "cron"): "cron",
+    ("gpu", "cron"): "cron",
+    ("cpu", "debug_preempt"): "debug_preempt",
+    ("gpu", "debug_preempt"): "debug_preempt",
+    ("cpu", "express_amsc"): "express_amsc",
+    ("gpu", "express_amsc"): "express_amsc",
+    ("cpu", "jupyter"): "jupyter",
+    ("gpu", "jupyter"): "jupyter",
+    ("cpu", "realtime_als"): "realtime_als",
+    ("gpu", "realtime_als"): "realtime_als",
+    ("cpu", "realtime_desi"): "realtime_desi",
+    ("gpu", "realtime_desi"): "realtime_desi",
+    ("cpu", "realtime_lcls"): "realtime_lcls",
+    ("gpu", "realtime_lcls"): "realtime_lcls",
+    ("cpu", "realtime_m3795"): "realtime_m3795",
+    ("gpu", "realtime_m3795"): "realtime_m3795",
+    ("cpu", "realtime_m4616"): "realtime_m4616",
+    ("gpu", "realtime_m4616"): "realtime_m4616",
+    ("cpu", "realtime_m5070"): "realtime_m5070",
+    ("gpu", "realtime_m5070"): "realtime_m5070",
+    ("cpu", "realtime_m5149"): "realtime_m5149",
+    ("gpu", "realtime_m5149"): "realtime_m5149",
+    ("cpu", "realtime_nstaff"): "realtime_nstaff",
+    ("gpu", "realtime_nstaff"): "realtime_nstaff",
+    ("cpu", "regular_1"): "regular_1",
+    ("gpu", "regular_1"): "regular_1",
+    ("cpu", "gpu_regular"): "gpu_regular",
+    ("gpu", "gpu_regular"): "gpu_regular",
+    ("cpu", "gpu_debug"): "gpu_debug",
+    ("gpu", "gpu_debug"): "gpu_debug",
+    ("cpu", "gpu_interactive"): "gpu_interactive",
+    ("gpu", "gpu_interactive"): "gpu_interactive",
+    ("cpu", "gpu_preempt"): "gpu_preempt",
+    ("gpu", "gpu_preempt"): "gpu_preempt",
+    ("cpu", "gpu_premium"): "gpu_premium",
+    ("gpu", "gpu_premium"): "gpu_premium",
+}
+
 # --- Node specs (wiki: slurm-jobs; docs.nersc.gov/systems/perlmutter/architecture/)
 NODES = {
     "gpu": {"cores": 64, "gpus": 4, "usable_cpu_mem_gb": 246, "usable_gpu_mem_gb": 150,

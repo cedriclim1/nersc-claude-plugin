@@ -17,6 +17,7 @@ import sys
 EXPECTED_TOOLS = {
     "nersc_status", "submit_job", "job_status", "job_postmortem",
     "cancel_job", "queue_advise", "allocate_interactive", "check_storage",
+    "queue_wait_stats",
 }
 
 
