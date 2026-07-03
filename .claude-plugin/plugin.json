@@ -1,0 +1,20 @@
+{
+  "name": "nersc",
+  "version": "0.2.0",
+  "description": "NERSC Perlmutter tools: SLURM job submission with guardrails, queue intelligence, storage and postmortem analysis",
+  "author": {
+    "name": "cedriclim1",
+    "url": "https://github.com/cedriclim1"
+  },
+  "repository": "https://github.com/cedriclim1/nersc-claude-plugin",
+  "license": "MIT",
+  "keywords": [
+    "nersc",
+    "hpc",
+    "slurm",
+    "perlmutter",
+    "mcp"
+  ],
+  "mcpServers": "./.mcp.json",
+  "skills": "./skills/"
+}

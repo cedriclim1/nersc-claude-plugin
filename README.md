@@ -4,8 +4,8 @@ A Claude Code plugin for NERSC. Its core is an MCP server that runs **natively o
 Perlmutter login node** and gives Claude Code safe, knowledge-encoded tools for using
 NERSC: validated SLURM submission, job postmortems, queue strategy and wait-time
 forecasts, persistent interactive allocations, and storage hygiene — the invisible
-knowledge most users learn the expensive way. Plugin packaging (one-command install +
-a `/nersc` skill) lands in v0.2 (NM-6); until then, register the server directly.
+knowledge most users learn the expensive way. This repo is a single-plugin Claude Code
+marketplace for the NERSC MCP server and `/nersc` skill.
 
 ## Install (on Perlmutter)
 
@@ -14,6 +14,31 @@ cd /global/cfs/cdirs/m5020/nersc_mcp        # or your own clone
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 ```
+
+## Install as a Claude Code plugin (recommended)
+
+In Claude Code:
+
+```text
+/plugin marketplace add cedriclim1/nersc-claude-plugin
+/plugin install nersc@nersc-claude-plugin
+```
+
+After install:
+
+- Run `/mcp` and confirm server `nersc` is connected.
+- Ask Claude to run `nersc_status`.
+- Confirm `tools/list` count matches the README tool table below.
+
+If the install fails:
+
+```text
+/plugin uninstall nersc
+```
+
+Then delete the plugin data venv at `~/.claude/plugins/data/<plugin-id>/venv` and
+reinstall. The bare registration path always works as a fallback:
+`claude mcp add nersc -- /global/cfs/cdirs/m5020/nersc_mcp/run-server.sh`.
 
 ## Register in Claude Code (on Perlmutter)
 
