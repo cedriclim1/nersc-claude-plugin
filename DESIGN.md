@@ -9,6 +9,11 @@ record the approval in the ticket before editing this file.
   (`nersc-claude-plugin` repo) bundling this MCP server + a `/nersc` skill (NM-6);
   the server itself is unchanged. Tool #9 `queue_wait_stats` added (§4.9, NM-10) per
   user feature request.
+- 2026-07-03 (user-approved): roadmap extended to v0.7 (§8). Non-goals in §1 now carry
+  their owning phase; the workflow-manager and file-deletion non-goals are **permanent**.
+  §3 gains the executor-seam note (all subprocess execution behind `slurm.run()`) so the
+  v0.7 SFAPI backend can swap executors without touching tool code. No v1 tool semantics
+  changed.
 
 This document is written to be executed by agents of varying capability. If you are an
 agent working on this codebase: **read §2 and §7 before writing any code, and re-read the
@@ -34,13 +39,20 @@ The server wraps the *invisible knowledge* documented in the project wiki (conce
 `slurm-jobs`, `qos-policy`, `friction-points`, `underused-features`) so users don't need
 to learn it the expensive way.
 
-**Non-goals for v1** (do not build these, even if they seem easy):
+**Non-goals for v1** (do not build these, even if they seem easy). Each deferred item
+names the roadmap phase (§8) that owns it — it stays a non-goal until that phase's
+front gate approves the amendment:
 - No SSH bridging inside the server (the server IS on NERSC; decision `dec_mr4h81u2fqq`).
-- No Superfacility API backend (Tier 3; revisit post-v1).
-- No container image-building tools (Tier 2 / v2 — `image_build`, `image_migrate`).
-- No Globus/DTN transfer execution (v2; v1 only *advises* in `check_storage`).
-- No workflow-manager reimplementation (advice only).
-- No file deletion or modification tools of any kind.
+  **Permanent** — remote access is the SFAPI executor's job (v0.7), never SSH.
+- No Superfacility API backend (→ **v0.7**, NM-24..27: opt-in executor behind the
+  `slurm.run()` seam; native stays primary — decision `dec_mr4l4uv5u5b`).
+- No container image-building tools (→ **v0.3**, NM-8 — `image_build`, `image_migrate`).
+- No Globus/DTN transfer execution (→ **v0.6**, NM-21..23; until then `check_storage`
+  only *advises*).
+- No workflow-manager reimplementation. **Permanent** — a bespoke orchestrator would
+  violate I2 and duplicate the nine engines NERSC documents; v0.4 (NM-14) ships a
+  decision matrix + config scaffolding instead.
+- No file deletion or modification tools of any kind. **Permanent.**
 
 ## 2. Hard invariants (safety rails — NEVER weaken these)
 
@@ -95,6 +107,11 @@ to any invariant requires user sign-off; a PR that weakens one must be rejected.
   inline in tools.
 - **Subprocess discipline:** one helper `slurm.run(argv, timeout=30)` — list argv (never
   `shell=True`), captured output, explicit timeout, non-zero exit → structured error.
+- **Executor seam (forward compatibility, added 2026-07-03):** `slurm.run()` is the ONLY
+  place tool code touches execution. Never call `subprocess` from a tool module. In v0.7
+  this seam becomes an executor abstraction (local subprocess vs. SFAPI HTTPS, NM-24/25)
+  and the promise is that no `tools/` code changes — every bypass of `slurm.run()` added
+  before then breaks that promise.
 
 ## 4. v1 tool surface (9 tools — build exactly these)
 
@@ -194,3 +211,25 @@ criteria (AC) are testable; a tool's ticket is not done until its ACs pass.
   2026-07-03; private until the group-testing milestone). Small commits, imperative
   messages. For this project only, Claude may be listed as an author. After each session:
   push, then `ssh perl "cd /global/cfs/cdirs/m5020/nersc_mcp && git pull"` (project rule).
+
+## 8. Roadmap (user-approved 2026-07-03)
+
+Version phases mirror the Loop board. The tool list stays closed at all times; a phase
+that adds tools gets its amendment to §4 approved by the user at that phase's **front
+gate**, before any code. v0.4+ tickets are deliberately coarse — their detailed specs
+are written at the front gate, not before. Do not start a ticket whose phase hasn't
+been front-gated.
+
+| phase | scope | tickets | new tools |
+|---|---|---|---|
+| v0.2 — Plugin packaging & queue intelligence | plugin + `/nersc` skill, user-path smoke, queue_wait_stats | NM-6, 7, 9, 10 | — (tool #9 already amended) |
+| v0.3 — Image tools (podman-hpc) | image_build + image_migrate; login-node-limits caution | NM-8 | image_build, image_migrate |
+| v0.4 — ML & workflow enablement | TensorBoard, HPO/Ray-on-SLURM, distributed training, workflow-engine selector, Jupyter kernels | NM-11..15 | kernel_build |
+| v0.5 — Build doctor & applications | compiler/PrgEnv doctor, math libs, module resolver, license preflight, Darshan/Drishti postmortem | NM-16..20 | module resolver |
+| v0.6 — Data movement (Globus) | placement-aware transfers, laptop↔NERSC via Globus Connect Personal | NM-21..23 | transfer_start, transfer_status |
+| v0.7 — SFAPI backend (local mode) | executor abstraction + SFAPI executor + client-setup skill; `allocate_interactive` degrades explicitly | NM-24..27 | — (backend, not tools) |
+
+Knowledge for each phase lives in the project wiki (concepts: `ml-workflows`,
+`build-and-compile`, `applications-catalog`, `jupyter-kernels`, `io-and-checkpoint`,
+`data-movement`, `sfapi`); the SFAPI endpoint/auth ground truth is wiki source
+`s-sfapi-openapi` (probed 2026-07-03). Direction contract: `dec_mr4l4uv5u5b`.
