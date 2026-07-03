@@ -20,8 +20,12 @@ def run(argv: Sequence[str], timeout: int = DEFAULT_TIMEOUT,
             input=stdin_text,
         )
         return proc.returncode, proc.stdout, proc.stderr
-    except subprocess.TimeoutExpired:
-        return 124, "", f"timeout after {timeout}s: {' '.join(argv)}"
+    except subprocess.TimeoutExpired as exc:
+        # Preserve partial output — it may contain the only evidence of side
+        # effects already in flight (e.g. salloc's job allocation line).
+        partial_out = exc.stdout.decode() if isinstance(exc.stdout, bytes) else (exc.stdout or "")
+        partial_err = exc.stderr.decode() if isinstance(exc.stderr, bytes) else (exc.stderr or "")
+        return 124, partial_out, f"timeout after {timeout}s: {' '.join(argv)}\n{partial_err}"
     except FileNotFoundError:
         return 127, "", f"command not found: {argv[0]}"
     except OSError as exc:  # pragma: no cover - environment-specific
@@ -29,16 +33,21 @@ def run(argv: Sequence[str], timeout: int = DEFAULT_TIMEOUT,
 
 
 def parse_squeue_table(text: str) -> list:
-    """Parse `squeue ... -o '%i|%j|%T|%r|%M|%l|%S|%V' --noheader` pipe-tables."""
+    """Parse `squeue ... -o '%i|%j|%T|%r|%M|%l|%S|%V' --noheader` pipe-tables.
+
+    Only the name field (%j) can itself contain '|', so the six trailing fields
+    are taken from the right and the name is whatever remains in the middle.
+    """
     jobs = []
     for line in text.splitlines():
         parts = [p.strip() for p in line.split("|")]
         if len(parts) < 8 or not parts[0]:
             continue
+        tail = parts[-6:]
         jobs.append({
-            "jobid": parts[0], "name": parts[1], "state": parts[2],
-            "reason": parts[3], "elapsed": parts[4], "time_limit": parts[5],
-            "start_estimate": parts[6], "submitted": parts[7],
+            "jobid": parts[0], "name": "|".join(parts[1:-6]), "state": tail[0],
+            "reason": tail[1], "elapsed": tail[2], "time_limit": tail[3],
+            "start_estimate": tail[4], "submitted": tail[5],
         })
     return jobs
 

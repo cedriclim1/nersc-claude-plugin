@@ -16,11 +16,16 @@ AGE_GUARD_MINUTES = 60
 _SQUEUE_FMT = "%i|%j|%T|%r|%M|%l|%S|%V"
 
 
-def _submit_age_minutes(submitted: str, now: datetime) -> float:
+def _submit_age_minutes(submitted: str, now: datetime):
+    """Returns age in minutes, or None when the timestamp is unparseable.
+
+    None makes the guard FAIL CLOSED (refuse to cancel) — a safety guard that
+    silently disables itself on a format change is worse than an inconvenience.
+    """
     try:
         dt = datetime.fromisoformat(submitted)
     except ValueError:
-        return 0.0
+        return None
     return (now - dt) / timedelta(minutes=1)
 
 
@@ -40,6 +45,12 @@ def cancel_job(jobid: str, confirm: bool = False, force: bool = False) -> dict:
 
     if job["state"] == "PENDING" and not force:
         age = _submit_age_minutes(job["submitted"], datetime.now())
+        if age is None:
+            return err(
+                "age_guard",
+                f"job {jobid} is PENDING but its submit time {job['submitted']!r} "
+                f"could not be parsed, so its queue age is unknown. Queue age accrues "
+                f"priority — refusing to cancel blind. Pass force=true to override.")
         if age > AGE_GUARD_MINUTES:
             return err(
                 "age_guard",

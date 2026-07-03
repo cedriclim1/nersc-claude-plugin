@@ -43,8 +43,58 @@ def test_unknown_qos_rejected():
 
 
 def test_script_body_missing_constraint_rejected():
-    res = submit.submit_job(script_body="#!/bin/bash\n#SBATCH --qos=debug\n#SBATCH --time=5\n#SBATCH --account=m1\nsrun hostname\n", dry_run=True)
+    res = submit.submit_job(script_body="#!/bin/bash\n#SBATCH --qos=debug\n#SBATCH --time=5\n#SBATCH --nodes=1\n#SBATCH --account=m1\nsrun hostname\n", dry_run=True)
     assert not res["ok"] and "--constraint" in res["error"]["message"]
+
+
+def test_script_body_short_flags_accepted():
+    script = ("#!/bin/bash\n#SBATCH -C cpu\n#SBATCH -q regular\n#SBATCH -t 04:00:00\n"
+              "#SBATCH -A m5020\n#SBATCH -N 2\nsrun hostname\n")
+    res = submit.submit_job(script_body=script, dry_run=True)
+    assert res["ok"], res
+
+
+def test_script_body_quiet_flag_does_not_satisfy_qos():
+    script = ("#!/bin/bash\n#SBATCH -C cpu\n#SBATCH -Q\n#SBATCH -t 04:00:00\n"
+              "#SBATCH -A m5020\n#SBATCH -N 2\nsrun hostname\n")
+    res = submit.submit_job(script_body=script, dry_run=True)
+    assert not res["ok"] and "--qos" in res["error"]["message"]
+
+
+def test_script_body_time_min_does_not_satisfy_time():
+    script = ("#!/bin/bash\n#SBATCH -C cpu\n#SBATCH -q regular\n#SBATCH --time-min=5\n"
+              "#SBATCH -A m5020\n#SBATCH -N 2\nsrun hostname\n")
+    res = submit.submit_job(script_body=script, dry_run=True)
+    assert not res["ok"] and "--time" in res["error"]["message"]
+
+
+def test_script_body_gpu_without_gpus_rejected():
+    script = ("#!/bin/bash\n#SBATCH -C gpu\n#SBATCH -q regular\n#SBATCH -t 04:00:00\n"
+              "#SBATCH -A m5020\n#SBATCH -N 1\nsrun hostname\n")
+    res = submit.submit_job(script_body=script, dry_run=True)
+    assert not res["ok"] and "no CUDA-capable device" in res["error"]["message"]
+
+
+def test_script_body_missing_nodes_rejected():
+    script = ("#!/bin/bash\n#SBATCH -C cpu\n#SBATCH -q regular\n#SBATCH -t 04:00:00\n"
+              "#SBATCH -A m5020\nsrun hostname\n")
+    res = submit.submit_job(script_body=script, dry_run=True)
+    assert not res["ok"] and "--nodes" in res["error"]["message"]
+
+
+def test_ambiguous_two_field_time_rejected():
+    res = submit.submit_job(spec={**GPU_SPEC, "time": "04:00"}, dry_run=True)
+    assert not res["ok"] and "MINUTES:SECONDS" in res["error"]["message"]
+
+
+def test_day_syntax_time_accepted():
+    res = submit.submit_job(spec={**GPU_SPEC, "time": "1-12:00:00"}, dry_run=True)
+    assert res["ok"], res
+
+
+def test_cpu_constraint_with_gpus_rejected():
+    res = submit.submit_job(spec={**GPU_SPEC, "constraint": "cpu"}, dry_run=True)
+    assert not res["ok"] and "no GPUs" in res["error"]["message"]
 
 
 def test_spec_and_script_mutually_exclusive():

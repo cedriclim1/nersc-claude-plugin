@@ -9,7 +9,9 @@ _SQUEUE_FMT = "%i|%j|%T|%r|%M|%l|%S|%V"
 
 
 def nersc_status() -> dict:
-    rc, out, errtxt = slurm.run(["squeue", "--me", "--noheader", "-o", _SQUEUE_FMT])
+    # AC: returns within 10 s — both commands share a tight timeout.
+    rc, out, errtxt = slurm.run(["squeue", "--me", "--noheader", "-o", _SQUEUE_FMT],
+                                timeout=8)
     if rc != 0:
         return err("squeue_failed", errtxt.strip() or "squeue failed", errtxt)
     jobs = slurm.parse_squeue_table(out)
@@ -22,9 +24,12 @@ def nersc_status() -> dict:
         if job["state"] == "PENDING" and job["reason"] == "Priority":
             hints.append(f"job {job['jobid']} is aging in queue — age accrues priority; do not cancel/resubmit")
 
-    rc2, out2, _ = slurm.run([
+    rc2, out2, err2 = slurm.run([
         "sacct", "--starttime", "now-1days", "-X", "-P",
-        "-o", "JobID,JobName,State,ExitCode,Elapsed,Reason"])
+        "-o", "JobID,JobName,State,ExitCode,Elapsed,Reason"], timeout=8)
     recent = slurm.parse_sacct_table(out2) if rc2 == 0 else []
+    if rc2 != 0:
+        warnings.append(f"sacct failed ({err2.strip() or rc2}) — recent_24h is empty "
+                        f"because history was unavailable, not because nothing ran")
 
     return result(True, {"queued": jobs, "recent_24h": recent}, warnings, hints)

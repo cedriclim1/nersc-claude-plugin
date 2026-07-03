@@ -46,3 +46,13 @@ def test_long_job_preempt_hint():
 def test_charge_math():
     res = queue_advise(nodes=10, time_minutes=120)
     assert res["data"]["estimated_charge_node_hours"] == 20.0
+
+
+def test_single_node_gets_shared_hint():
+    res = queue_advise(nodes=1, time_minutes=120)
+    assert any("shared" in h for h in res["hints"])
+
+
+def test_regular_mentions_premium_escalation():
+    res = queue_advise(nodes=4, time_minutes=120)
+    assert any("premium" in h and "4x" in h for h in res["hints"])

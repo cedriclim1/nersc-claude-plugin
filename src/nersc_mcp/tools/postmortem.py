@@ -6,14 +6,16 @@ Encodes the failure-text diagnosis the tomo transcripts show being done by hand
 
 from __future__ import annotations
 
-from .. import slurm
+from .. import knowledge, slurm
 from ..util import err, result
 
 CATEGORIES = ("oom", "time_limit", "node_fail", "cancelled", "quota", "script_error", "unknown")
 
 _HINTS = {
     "oom": ("reduce per-task memory, request more nodes, or lower batch size; "
-            "GPU nodes have ~150 GB usable GPU / ~246 GB CPU RAM, CPU nodes ~502 GB"),
+            f"GPU nodes have ~{knowledge.NODES['gpu']['usable_gpu_mem_gb']} GB usable GPU / "
+            f"~{knowledge.NODES['gpu']['usable_cpu_mem_gb']} GB CPU RAM, "
+            f"CPU nodes ~{knowledge.NODES['cpu']['usable_cpu_mem_gb']} GB"),
     "time_limit": "request more --time (check queue_advise for QOS ceilings) or add checkpointing",
     "node_fail": "hardware fault — resubmitting the same script is usually safe",
     "cancelled": "cancelled by user/admin; if you cancelled an aged PENDING job, note that queue age = priority",

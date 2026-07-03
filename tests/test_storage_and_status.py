@@ -31,7 +31,30 @@ def test_storage_scratch_purge_warning(monkeypatch):
 def test_storage_unknown_need(monkeypatch):
     _mock(monkeypatch, storage, {"showquota": (0, "", "")})
     res = storage.check_storage("everything")
-    assert not res["ok"]
+    assert not res["ok"] and res["error"]["kind"] == "bad_args"
+
+
+SHOWQUOTA_FIXTURE = """\
+Filesystem    Usage        Limit      %Used
+home          12.3GiB      40.0GiB    31%
+pscratch      1.2TiB       20.0TiB    6%
+cfs_m5020     8.7TiB       20.0TiB    43%
+"""
+
+
+def test_storage_parses_showquota(monkeypatch):
+    _mock(monkeypatch, storage, {"showquota": (0, SHOWQUOTA_FIXTURE, "")})
+    res = storage.check_storage()
+    rows = res["data"]["quotas"]
+    assert {"filesystem": "home", "used": "12.3GiB", "limit": "40.0GiB"} in rows
+    assert len(rows) == 3
+
+
+def test_storage_unparseable_quota_warns(monkeypatch):
+    _mock(monkeypatch, storage, {"showquota": (0, "something novel\n", "")})
+    res = storage.check_storage()
+    assert res["data"]["quotas"] == []
+    assert any("did not match" in w for w in res["warnings"])
 
 
 def test_status_zero_jobs(monkeypatch):

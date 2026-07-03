@@ -51,3 +51,10 @@ def test_running_job_cancels_without_age_guard(monkeypatch):
     monkeypatch.setattr(cancel.slurm, "run", _mock_run(_squeue_line("RUNNING", old)))
     res = cancel.cancel_job("55123", confirm=True)
     assert res["ok"]
+
+
+def test_unparseable_submit_time_fails_closed(monkeypatch):
+    monkeypatch.setattr(cancel.slurm, "run", _mock_run(_squeue_line("PENDING", "N/A")))
+    res = cancel.cancel_job("55123", confirm=True)
+    assert not res["ok"] and res["error"]["kind"] == "age_guard"
+    assert "could not be parsed" in res["error"]["message"]

@@ -12,6 +12,10 @@ import re
 
 from .. import slurm
 from ..util import err, result
+from .submit import validate_time
+
+_GRANTED_RE = re.compile(r"Granted job allocation (\d+)")
+_PENDING_RE = re.compile(r"job allocation (\d+)")
 
 
 def allocate_interactive(account: str, nodes: int = 1, time: str = "04:00:00",
@@ -20,13 +24,33 @@ def allocate_interactive(account: str, nodes: int = 1, time: str = "04:00:00",
         return err("bad_args", "constraint must be 'gpu' or 'cpu'")
     if not account:
         return err("bad_args", "account is required (e.g. m1234)")
+    time_error = validate_time(time)
+    if time_error:
+        return err("validation", time_error)
 
     rc, out, errtxt = slurm.run(
         ["salloc", "-A", account, "-C", constraint, "-q", "interactive",
          "-t", str(time), "-N", str(int(nodes)), "--no-shell"],
         timeout=180)
     text = out + "\n" + errtxt
-    m = re.search(r"Granted job allocation (\d+)", text)
+    m = _GRANTED_RE.search(text)
+
+    if rc == 124 and not m:
+        # Timeout: salloc was killed, but a PENDING allocation request may still be
+        # granted later and charge while idle. Surface any JID we saw and clean up.
+        pending = _PENDING_RE.search(text)
+        if pending:
+            jid = pending.group(1)
+            slurm.run(["scancel", jid])
+            return err("salloc_timeout",
+                       f"salloc timed out; pending allocation {jid} was cancelled to "
+                       f"avoid an orphaned (idle, charging) allocation. Retry when the "
+                       f"queue is quieter.", text)
+        return err("salloc_timeout",
+                   "salloc timed out before printing a job allocation line. Check "
+                   "`squeue --me` for an orphaned interactive allocation and scancel "
+                   "it if present.", text)
+
     if rc != 0 and not m:
         return err("salloc_failed", text.strip() or "salloc failed", text)
     if not m:
