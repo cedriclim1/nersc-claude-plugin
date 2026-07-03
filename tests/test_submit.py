@@ -104,6 +104,82 @@ def test_spec_and_script_mutually_exclusive():
 
 def test_real_submit_parses_jobid(monkeypatch):
     monkeypatch.setattr(submit.slurm, "run",
-                        lambda argv, timeout=30, stdin_text=None: (0, "Submitted batch job 55123\n", ""))
+                        lambda argv, timeout=30, stdin_text=None:
+                        (0, "Submitted batch job 55123\n", "") if argv[0] == "sbatch"
+                        else (0, "JOBID PARTITION NAME USER ST START_TIME NODES SCHEDNODES NODELIST(REASON)\n55123 regular j u PD 2026-07-03T12:00:00 1 n/a (Priority)\n", ""))
     res = submit.submit_job(spec=GPU_SPEC)
     assert res["ok"] and res["data"]["jobid"] == "55123"
+    assert res["data"]["start_estimate"] == "2026-07-03T12:00:00"
+
+
+def test_spec_env_and_geometry_fields_emit_in_script():
+    res = submit.submit_job(spec={**GPU_SPEC, "env_lines": ["export OMP_NUM_THREADS=8"],
+                                  "ntasks_per_node": 4, "cpus_per_task": 8,
+                                  "gpu_bind": "closest"}, dry_run=True)
+    script = res["data"]["script"]
+    assert "export OMP_NUM_THREADS=8" in script
+    assert "#SBATCH --cpus-per-task=8" in script
+    assert "--ntasks-per-node=4" in script
+    assert "--cpus-per-task=8" in script
+    assert "--gpu-bind=closest" in script
+
+
+def test_debug_first_warning_triggers_for_script_path(monkeypatch, tmp_path):
+    state_path = tmp_path / "state.json"
+    monkeypatch.setenv("NERSC_MCP_STATE_PATH", str(state_path))
+    monkeypatch.chdir(tmp_path)
+    script = tmp_path / "job.sh"
+    script.write_text("#!/bin/bash\n")
+    res = submit.submit_job(spec={**GPU_SPEC, "script_path": str(script)}, dry_run=True)
+    assert any("qos=debug first" in w for w in res["warnings"])
+
+
+def test_debug_first_warning_not_for_debug(monkeypatch, tmp_path):
+    monkeypatch.setenv("NERSC_MCP_STATE_PATH", str(tmp_path / "state.json"))
+    monkeypatch.chdir(tmp_path)
+    script = tmp_path / "job.sh"
+    script.write_text("#!/bin/bash\n")
+    res = submit.submit_job(spec={**GPU_SPEC, "qos": "debug", "script_path": str(script)}, dry_run=True)
+    assert not any("qos=debug first" in w for w in res["warnings"])
+
+
+def test_storage_warning_for_output_under_home(monkeypatch, tmp_path):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.chdir(tmp_path)
+    script = ("#!/bin/bash\n#SBATCH -C cpu\n#SBATCH -q debug\n#SBATCH -t 00:05:00\n"
+              "#SBATCH -A m5020\n#SBATCH -N 1\n#SBATCH -o ~/out.txt\nsrun hostname\n")
+    res = submit.submit_job(script_body=script, dry_run=True)
+    assert any("$SCRATCH" in w for w in res["warnings"])
+
+
+def test_storage_warning_not_for_scratch_output(monkeypatch, tmp_path):
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.chdir(tmp_path)
+    script = ("#!/bin/bash\n#SBATCH -C cpu\n#SBATCH -q debug\n#SBATCH -t 00:05:00\n"
+              "#SBATCH -A m5020\n#SBATCH -N 1\n#SBATCH -o /pscratch/sd/u/user/out.txt\nsrun hostname\n")
+    res = submit.submit_job(script_body=script, dry_run=True)
+    assert not any("$SCRATCH" in w for w in res["warnings"])
+
+
+def test_history_written_on_success(monkeypatch, tmp_path):
+    monkeypatch.setenv("NERSC_MCP_STATE_PATH", str(tmp_path / "state.json"))
+    script = tmp_path / "job.sh"
+    script.write_text("#!/bin/bash\n")
+
+    def fake_run(argv, timeout=30, stdin_text=None):
+        if argv[0] == "sbatch":
+            return 0, "Submitted batch job 777\n", ""
+        if argv[0] == "sacct":
+            return 0, "", ""
+        if argv[0] == "squeue":
+            return 0, "", ""
+        raise AssertionError(argv)
+
+    monkeypatch.setattr(submit.slurm, "run", fake_run)
+    res = submit.submit_job(spec={**GPU_SPEC, "qos": "debug", "script_path": str(script)})
+    assert res["ok"]
+    state, warnings = submit.store.load_state()
+    assert not warnings
+    hist = state["scripts"][str(script.resolve())]["history"]
+    assert hist[-1]["jobid"] == "777"
+    assert hist[-1]["qos"] == "debug"

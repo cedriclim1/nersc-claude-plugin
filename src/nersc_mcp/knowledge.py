@@ -131,3 +131,6 @@ PLACEMENT = {
     "never": ("$HOME",
               "never for parallel job I/O; small permanent files only"),
 }
+
+# --- Filesystem roots (wiki: filesystems) -----------------------------------
+CFS_ROOT = "/global/cfs"

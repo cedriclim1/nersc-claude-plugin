@@ -7,13 +7,37 @@ GPU jobs always carry an explicit GPU request (the `no CUDA-capable device` trap
 
 from __future__ import annotations
 
+import os
 import re
-from typing import Optional
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import List, Optional
 
-from .. import knowledge, slurm
+from pydantic import BaseModel
+
+from .. import knowledge, slurm, store
 from ..util import err, result
+from .context import history_flags, parse_sacct_job_states
 
 REQUIRED = ("nodes", "time", "constraint", "qos", "account")
+
+# The installed MCP SDK depends on pydantic, so using BaseModel for tools/list
+# schema is allowed under DESIGN.md I8; no new runtime dependency is introduced.
+class SubmitSpec(BaseModel):
+    nodes: int
+    time: str
+    constraint: str
+    qos: str
+    account: str
+    command: Optional[str] = None
+    gpus: Optional[int] = None
+    ntasks_per_node: Optional[int] = None
+    cpus_per_task: Optional[int] = None
+    gpu_bind: Optional[str] = None
+    env_lines: Optional[List[str]] = None
+    script_path: Optional[str] = None
+    job_name: Optional[str] = None
+
 
 # SLURM time: minutes | HH:MM:SS | D-HH | D-HH:MM | D-HH:MM:SS.
 # Bare M:S / two-field times are DELIBERATELY rejected: SLURM reads "04:00" as
@@ -85,15 +109,25 @@ def build_script(spec: dict) -> tuple:
         lines.append(f"#SBATCH --gpus={gpus}")
     if spec.get("ntasks_per_node"):
         lines.append(f"#SBATCH --ntasks-per-node={int(spec['ntasks_per_node'])}")
+    if spec.get("cpus_per_task"):
+        lines.append(f"#SBATCH --cpus-per-task={int(spec['cpus_per_task'])}")
     lines.append("")
     if constraint == "gpu":
         for key, val in knowledge.GPU_ENV_EXPORTS.items():
             lines.append(f"export {key}={val}")
+        for env_line in spec.get("env_lines") or []:
+            lines.append(str(env_line))
         lines.append("")
     command = spec.get("command") or 'echo "no command given"'
     srun = ["srun", "--cpu-bind=cores"]
     if gpus:
         srun.append(f"-G {gpus}")
+    if spec.get("ntasks_per_node"):
+        srun.append(f"--ntasks-per-node={int(spec['ntasks_per_node'])}")
+    if spec.get("cpus_per_task"):
+        srun.append(f"--cpus-per-task={int(spec['cpus_per_task'])}")
+    if spec.get("gpu_bind"):
+        srun.append(f"--gpu-bind={spec['gpu_bind']}")
     lines.append(f"{' '.join(srun)} {command}")
     lines.append("")
     return "\n".join(lines), warnings, hints
@@ -110,6 +144,118 @@ def validate_script_body(script: str) -> Optional[str]:
     return None
 
 
+def _spec_dict(spec) -> dict:
+    if hasattr(spec, "model_dump"):
+        return spec.model_dump(exclude_none=True)
+    if hasattr(spec, "dict"):
+        return spec.dict(exclude_none=True)
+    return dict(spec)
+
+
+def _script_hash_for_body(script: str) -> str:
+    import hashlib
+
+    return hashlib.sha256(script.encode("utf-8")).hexdigest()
+
+
+def _current_hash(script_path: Optional[str], script: str) -> tuple:
+    if script_path:
+        return store.file_sha256(script_path)
+    return _script_hash_for_body(script), None
+
+
+def _completed_history_for_hash(content_hash: str) -> bool:
+    records = store.all_history_for_hash(content_hash)
+    if not records:
+        return False
+    jobids = [str(r["jobid"]) for r in records if r.get("jobid")]
+    if not jobids:
+        return False
+    rc, out, _errtxt = slurm.run(["sacct", "-j", ",".join(jobids), "-o",
+                                  "JobID,State,Elapsed", "-nP"])
+    if rc != 0:
+        return False
+    states = parse_sacct_job_states(out)
+    return any(states.get(str(r.get("jobid")), {}).get("state") == "COMPLETED"
+               for r in records)
+
+
+def _script_path_flags(script_path: str, content_hash: str) -> tuple:
+    state, warnings = store.load_state()
+    entry = state.get("scripts", {}).get(store.normalize_script_path(script_path), {})
+    hist = list(entry.get("history", []))
+    jobids = [str(h.get("jobid")) for h in hist if h.get("jobid")]
+    if jobids:
+        rc, out, errtxt = slurm.run(["sacct", "-j", ",".join(jobids), "-o",
+                                     "JobID,State,Elapsed", "-nP"])
+        if rc == 0:
+            live = parse_sacct_job_states(out)
+            for item in hist:
+                if str(item.get("jobid")) in live:
+                    item.update(live[str(item.get("jobid"))])
+        else:
+            warnings.append(f"could not refresh script history: {errtxt.strip() or out.strip()}")
+    return history_flags(hist, content_hash), warnings
+
+
+def _path_under(path: str, root: str) -> bool:
+    try:
+        p = Path(path).expanduser().resolve()
+        r = Path(root).expanduser().resolve()
+        return p == r or r in p.parents
+    except OSError:
+        return str(path).startswith(str(root))
+
+
+def _output_paths(script: str) -> List[str]:
+    paths: List[str] = []
+    for line in script.splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("#SBATCH"):
+            continue
+        m = re.search(r"(?:--output(?:=|\s+)|-o\s+)(\S+)", stripped)
+        if m:
+            paths.append(m.group(1))
+    return paths
+
+
+def _storage_warnings(script: str, submit_dir: str) -> List[str]:
+    warnings: List[str] = []
+    home = str(Path.home())
+    risky = []
+    for label, path in [("submit directory", submit_dir)]:
+        if _path_under(path, home) or _path_under(path, knowledge.CFS_ROOT):
+            risky.append(f"{label} {path}")
+    for out_path in _output_paths(script):
+        expanded = out_path
+        if not os.path.isabs(expanded):
+            expanded = os.path.join(submit_dir, expanded)
+        if _path_under(expanded, home) or _path_under(expanded, knowledge.CFS_ROOT):
+            risky.append(f"output path {out_path}")
+    if risky:
+        warnings.append("Job I/O under $HOME or /global/cfs is a common performance/quota problem; "
+                        f"use $SCRATCH for submit/output paths instead ({'; '.join(risky)})")
+    return warnings
+
+
+def _start_estimate(jobid: Optional[str], hints: List[str]) -> Optional[str]:
+    if not jobid:
+        hints.append("start_estimate unavailable because no jobid was parsed")
+        return None
+    rc, out, errtxt = slurm.run(["squeue", "--start", "-j", jobid])
+    if rc != 0:
+        hints.append(f"squeue --start failed; start estimate unavailable: {errtxt.strip() or out.strip()}")
+        return None
+    for line in out.splitlines():
+        if jobid in line and not line.lower().startswith("jobid"):
+            parts = line.split()
+            if len(parts) >= 6:
+                return parts[5]
+            return line.strip()
+    hints.append("squeue --start returned no estimate for this job")
+    return None
+
+
 def submit_job(spec: Optional[dict] = None, script_body: Optional[str] = None,
                dry_run: bool = False) -> dict:
     if (spec is None) == (script_body is None):
@@ -117,9 +263,13 @@ def submit_job(spec: Optional[dict] = None, script_body: Optional[str] = None,
 
     warnings: list = []
     hints: list = []
+    script_path = None
+    spec_data = None
     if spec is not None:
+        spec_data = _spec_dict(spec)
+        script_path = spec_data.get("script_path")
         try:
-            script, warnings, hints = build_script(spec)
+            script, warnings, hints = build_script(spec_data)
         except ValueError as exc:
             return err("validation", str(exc))
     else:
@@ -127,6 +277,22 @@ def submit_job(spec: Optional[dict] = None, script_body: Optional[str] = None,
         problem = validate_script_body(script)
         if problem:
             return err("validation", problem)
+
+    content_hash, hash_error = _current_hash(script_path, script)
+    if hash_error:
+        warnings.append(f"could not hash script_path for history checks: {hash_error}")
+    if content_hash:
+        qos = (spec_data or {}).get("qos") or _extract_sbatch_value(script, "qos", "q")
+        if script_path:
+            flags, flag_warnings = _script_path_flags(script_path, content_hash)
+            warnings.extend(flag_warnings)
+            untested = flags["untested"]
+        else:
+            untested = not _completed_history_for_hash(content_hash)
+        if untested and qos != "debug":
+            warnings.append("This script/content has no COMPLETED history; submit with qos=debug first when feasible before using a longer or larger QOS.")
+    submit_dir = str(Path(script_path).expanduser().resolve().parent) if script_path else os.getcwd()
+    warnings.extend(_storage_warnings(script, submit_dir))
 
     if dry_run:
         return result(True, {"script": script, "submitted": False},
@@ -140,8 +306,32 @@ def submit_job(spec: Optional[dict] = None, script_body: Optional[str] = None,
     if jobid is None:
         warnings.append("sbatch exited 0 but no 'Submitted batch job' line was found — "
                         "check data.raw and squeue")
+    start_estimate = _start_estimate(jobid, hints)
+    if script_path and jobid and content_hash:
+        try:
+            warnings.extend(store.append_history(script_path, {
+                "jobid": jobid,
+                "content_hash": content_hash,
+                "submitted_at": datetime.now(timezone.utc).isoformat(),
+                "qos": (spec_data or {}).get("qos") or _extract_sbatch_value(script, "qos", "q"),
+                "constraint": (spec_data or {}).get("constraint") or _extract_sbatch_value(script, "constraint", "C"),
+                "nodes": (spec_data or {}).get("nodes") or _extract_sbatch_value(script, "nodes", "N"),
+            }))
+        except OSError as exc:
+            warnings.append(f"job submitted but history could not be saved: {exc}")
     return result(True, {"jobid": jobid, "script": script, "submitted": True,
-                         "raw": out.strip()}, warnings, hints)
+                         "start_estimate": start_estimate, "raw": out.strip()},
+                  warnings, hints)
+
+
+def _extract_sbatch_value(script: str, long_name: str, short_name: str) -> Optional[str]:
+    long_re = re.compile(rf"#SBATCH\s+--{re.escape(long_name)}(?:=|\s+)(\S+)")
+    short_re = re.compile(rf"#SBATCH\s+-{re.escape(short_name)}\s+(\S+)")
+    for line in script.splitlines():
+        m = long_re.search(line) or short_re.search(line)
+        if m:
+            return m.group(1)
+    return None
 
 
 def _translate_sbatch_error(text: str) -> str:

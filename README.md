@@ -61,6 +61,9 @@ hostname"* or *"why did job 55391394 die?"*.
 | `queue_advise` | QOS choice + node-hour cost from the policy table |
 | `allocate_interactive` | `salloc --no-shell` + `srun --jobid` pattern for stateless shells |
 | `check_storage` | quotas + where data belongs (+ flock-on-CFS warning) |
+| `queue_wait_stats` | Iris queue-wait history for a requested job shape |
+| `get_job_context` | accounts, stored profile, history, script hash status, CUDA module versions |
+| `save_job_profile` | persist a confirmed per-script submit profile and optional default account |
 
 ## Tests
 
