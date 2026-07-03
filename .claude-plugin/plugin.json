@@ -1,6 +1,6 @@
 {
   "name": "nersc",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "NERSC Perlmutter tools: SLURM job submission with guardrails, queue intelligence, storage and postmortem analysis",
   "author": {
     "name": "cedriclim1",
