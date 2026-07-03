@@ -31,7 +31,7 @@ as the definition of done.
    no tracebacks across the MCP boundary.
 7. **Tests mock `slurm.run`** — unit tests must never call real SLURM. Real submissions
    (integration/smoke only) use debug or interactive QOS, ≤1 node, ≤5 min.
-8. **Git**: repo is `github.com/cedriclim1/nersc-mcp`. Small commits, imperative mood.
+8. **Git**: repo is `github.com/cedriclim1/nersc-claude-plugin`. Small commits, imperative mood.
    For this project only, Claude may be listed as an author. Never force-push.
 
 ## The loop for any change

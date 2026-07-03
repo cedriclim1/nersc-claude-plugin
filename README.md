@@ -1,9 +1,11 @@
-# NERSC MCP
+# nersc-claude-plugin
 
-An MCP server that runs **natively on a NERSC Perlmutter login node** and gives Claude
-Code safe, knowledge-encoded tools for using NERSC: validated SLURM submission, job
-postmortems, queue strategy, persistent interactive allocations, and storage hygiene —
-the invisible knowledge most users learn the expensive way.
+A Claude Code plugin for NERSC. Its core is an MCP server that runs **natively on a
+Perlmutter login node** and gives Claude Code safe, knowledge-encoded tools for using
+NERSC: validated SLURM submission, job postmortems, queue strategy and wait-time
+forecasts, persistent interactive allocations, and storage hygiene — the invisible
+knowledge most users learn the expensive way. Plugin packaging (one-command install +
+a `/nersc` skill) lands in Phase 2 (NM-6); until then, register the server directly.
 
 ## Install (on Perlmutter)
 

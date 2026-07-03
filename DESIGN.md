@@ -1,8 +1,14 @@
 # NERSC MCP — Design Specification (v1)
 
-**Status:** approved design, Phase 1 (NM-4). Changes to §2 (invariants) or §4 (tool
-semantics) require explicit user approval — record the approval in the ticket before
-editing this file.
+**Status:** approved design, Phase 1 (NM-4); user reviewed and approved 2026-07-03.
+Changes to §2 (invariants) or §4 (tool semantics) require explicit user approval —
+record the approval in the ticket before editing this file.
+
+**Amendment log:**
+- 2026-07-03 (user-approved): product is distributed as a **Claude Code plugin**
+  (`nersc-claude-plugin` repo) bundling this MCP server + a `/nersc` skill (NM-6);
+  the server itself is unchanged. Tool #9 `queue_wait_stats` added (§4.9, NM-10) per
+  user feature request.
 
 This document is written to be executed by agents of varying capability. If you are an
 agent working on this codebase: **read §2 and §7 before writing any code, and re-read the
@@ -90,7 +96,7 @@ to any invariant requires user sign-off; a PR that weakens one must be rejected.
 - **Subprocess discipline:** one helper `slurm.run(argv, timeout=30)` — list argv (never
   `shell=True`), captured output, explicit timeout, non-zero exit → structured error.
 
-## 4. v1 tool surface (8 tools — build exactly these)
+## 4. v1 tool surface (9 tools — build exactly these)
 
 Every tool: snake_case name, typed params, docstring = what Claude sees. Acceptance
 criteria (AC) are testable; a tool's ticket is not done until its ACs pass.
@@ -129,6 +135,25 @@ criteria (AC) are testable; a tool's ticket is not done until its ACs pass.
    (software → /global/common; job I/O → $SCRATCH with purge warning; shared data → CFS;
    never $HOME for parallel I/O), flock-on-CFS warning when relevant. AC: advice table
    unit-tested; quota parse handles the real command output.
+9. **`queue_wait_stats(constraint, qos, hours, nodes=1, window_days=30)`** — expected
+   queue wait for a job shape, from NERSC's queue-wait database (added by amendment
+   2026-07-03, NM-10). Data source (probed and verified unauthenticated, from both
+   inside and outside NERSC): `POST https://iris.nersc.gov/graphql_web` with GraphQL
+   `query { queueWaitTime { queueWaitTime(qos: "<internal>", startMin: "<%Y-%m-%dT%H:%M:%S>",
+   startMax: "...") { qos nodes hours waitHours jobCount maxWaitHours } } }`.
+   Both date args are REQUIRED (server 500s otherwise); rows are bucketed by
+   (qos, nodes, requested-hours); `qos` uses SLURM-internal names — the user-facing
+   (constraint, qos) pair maps via a table in `knowledge.py` (cpu+regular → `regular_1`,
+   gpu+regular → `gpu_regular`, gpu+debug → `gpu_debug`, etc. — enumerate from a live
+   unfiltered query at implementation time). The tool returns BOTH a long-term window
+   (default 30 days) and a short-term window (previous day 00:00 → now) so the agent can
+   contrast "typically" vs "right now", plus a plain recommendation (e.g. "expect ~2 h;
+   yesterday's max for this shape was 18 h — consider preempt or fewer nodes").
+   Uses stdlib `urllib.request` only (I8); 10 s timeout; on any HTTP/parse failure returns
+   a structured error and NEVER blocks submission decisions (advice, not a gate).
+   AC: qos-mapping table unit-tested; response parser fixture-tested against captured API
+   output; empty-bucket result returns ok with an explicit "no jobs matched this shape"
+   hint rather than fabricating a number.
 
 ## 5. Error handling
 
@@ -165,6 +190,7 @@ criteria (AC) are testable; a tool's ticket is not done until its ACs pass.
   ticket summary written; (7) review gate + done.
 - **When blocked or surprised** (a command's output doesn't match this spec, a NERSC
   behavior contradicts the wiki): stop, file a Loop issue, ask. Do not code around it.
-- **Git:** repo `github.com/cedriclim1/nersc-mcp` ("NERSC MCP"). Small commits, imperative
+- **Git:** repo `github.com/cedriclim1/nersc-claude-plugin` (renamed from nersc-mcp,
+  2026-07-03; private until the group-testing milestone). Small commits, imperative
   messages. For this project only, Claude may be listed as an author. After each session:
   push, then `ssh perl "cd /global/cfs/cdirs/m5020/nersc_mcp && git pull"` (project rule).
