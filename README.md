@@ -28,6 +28,7 @@ After install:
 
 - Run `/mcp` and confirm server `nersc` is connected.
 - Ask Claude to run `nersc_status`.
+- The plugin ships a `/nersc` skill for guided Perlmutter submission, monitoring, queue forecasts, postmortems, and storage checks.
 - Confirm `tools/list` count matches the README tool table below.
 
 If the install fails:
