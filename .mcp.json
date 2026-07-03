@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "nersc": {
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/plugin-bootstrap.sh",
+      "env": {
+        "NERSC_MCP_DATA": "${CLAUDE_PLUGIN_DATA}"
+      }
+    }
+  }
+}

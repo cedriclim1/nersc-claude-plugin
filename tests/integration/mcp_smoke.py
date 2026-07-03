@@ -2,7 +2,7 @@
 """MCP stdio smoke test (DESIGN.md §6.2) — read-only + dry-run only; safe anytime.
 
 Speaks JSON-RPC to a nersc-mcp server over a subprocess's stdio and verifies:
-initialize, tools/list (8 tools), queue_advise, submit_job(dry_run).
+initialize, tools/list (11 tools), queue_advise, submit_job(dry_run).
 
 Usage:
   python tests/integration/mcp_smoke.py <command to start the server...>
@@ -17,6 +17,8 @@ import sys
 EXPECTED_TOOLS = {
     "nersc_status", "submit_job", "job_status", "job_postmortem",
     "cancel_job", "queue_advise", "allocate_interactive", "check_storage",
+    "queue_wait_stats",
+    "get_job_context", "save_job_profile",
 }
 
 

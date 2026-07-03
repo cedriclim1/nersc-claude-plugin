@@ -14,6 +14,13 @@ record the approval in the ticket before editing this file.
   §3 gains the executor-seam note (all subprocess execution behind `slurm.run()`) so the
   v0.7 SFAPI backend can swap executors without touching tool code. No v1 tool semantics
   changed.
+- 2026-07-03 (user-approved on Loop board, NM-9): v0.2 adds tool #10
+  `get_job_context` and tool #11 `save_job_profile`; `submit_job` gains profile/history
+  UX warnings while keeping both original input paths.
+- 2026-07-03 (user-approved in v0.2 review): for object-shaped tool params,
+  I6 envelope preservation wins over nested tools/list schema pre-validation.
+  `submit_job.spec` stays documented in the docstring and is validated inside
+  the tool body with `SubmitSpec`.
 
 This document is written to be executed by agents of varying capability. If you are an
 agent working on this codebase: **read §2 and §7 before writing any code, and re-read the
@@ -81,7 +88,7 @@ to any invariant requires user sign-off; a PR that weakens one must be rejected.
 - **I7 — No flock on CFS.** Any locking the server ever needs uses atomic `mkdir`
   spin-locks (lesson `flock-unsupported-on-cfs`).
 - **I8 — stdlib-only runtime deps** beyond the `mcp` package. No heavy imports at server
-  startup (login-node budget, I2).
+  startup (login-node budget, I2). `pydantic` is allowed as the MCP validation stack.
 
 ## 3. Architecture
 
@@ -90,7 +97,7 @@ to any invariant requires user sign-off; a PR that weakens one must be rejected.
 - **Layout:**
   ```
   nersc-mcp/
-    pyproject.toml          # deps: mcp; dev: pytest
+    pyproject.toml          # deps: mcp, pydantic; dev: pytest
     src/nersc_mcp/
       server.py             # FastMCP app: tool registrations only — no logic
       slurm.py              # subprocess wrappers: run(), parse helpers (pure functions)
@@ -113,9 +120,12 @@ to any invariant requires user sign-off; a PR that weakens one must be rejected.
   and the promise is that no `tools/` code changes — every bypass of `slurm.run()` added
   before then breaks that promise.
 
-## 4. v1 tool surface (9 tools — build exactly these)
+## 4. v1 tool surface (11 tools — build exactly these)
 
-Every tool: snake_case name, typed params, docstring = what Claude sees. Acceptance
+Every tool: snake_case name, typed primitive params, docstring = what Claude sees.
+For object-shaped params, the I6 envelope invariant wins over FastMCP nested field
+pre-validation: register the boundary as an object/dict, document fields in the
+docstring, and validate inside tool code. Acceptance
 criteria (AC) are testable; a tool's ticket is not done until its ACs pass.
 
 1. **`nersc_status()`** — read-only. User's queue (`squeue --me`), recent completions
@@ -171,6 +181,22 @@ criteria (AC) are testable; a tool's ticket is not done until its ACs pass.
    AC: qos-mapping table unit-tested; response parser fixture-tested against captured API
    output; empty-bucket result returns ok with an explicit "no jobs matched this shape"
    hint rather than fabricating a number.
+10. **`get_job_context(script_path)`** — read-only pre-submit context for a batch script.
+   Returns available accounts from `sacctmgr show assoc user=$USER format=account -nP`,
+   remembered default account if present, stored per-script profile, capped submission
+   history joined to one bounded `sacct -j <comma ids> -o JobID,State,Elapsed -nP` call,
+   current-file hash safety flags (`untested`, `changed_since_success`), and parsed
+   `module avail cudatoolkit` versions for CUDA mismatch advice. It never applies an
+   account automatically; the calling agent must confirm choices with the user. AC:
+   table-driven tests cover new, unchanged-completed, edited-since-success, and
+   failed-only histories; module parser handles captured module output.
+11. **`save_job_profile(script_path, profile, set_default_account=False)`** — persists a
+   user-confirmed submit profile for an absolute script path in the local state store,
+   optionally also saving `defaults.account`. The state store is
+   `~/.nersc-mcp/state.json`, never CFS; writes are atomic via same-directory tmp +
+   `os.replace`; concurrency is last-writer-wins with no locks; corrupt JSON is moved to
+   `state.json.bad` and treated as empty with an envelope warning. AC: atomic failure
+   leaves the original store intact; corrupt-store recovery backs up and warns.
 
 ## 5. Error handling
 
@@ -222,7 +248,7 @@ been front-gated.
 
 | phase | scope | tickets | new tools |
 |---|---|---|---|
-| v0.2 — Plugin packaging & queue intelligence | plugin + `/nersc` skill, user-path smoke, queue_wait_stats | NM-6, 7, 9, 10 | — (tool #9 already amended) |
+| v0.2 — Plugin packaging & queue intelligence | plugin + `/nersc` skill, user-path smoke, queue_wait_stats, submit-job UX context/profile | NM-6, 7, 9, 10 | queue_wait_stats, get_job_context, save_job_profile |
 | v0.3 — Image tools (podman-hpc) | image_build + image_migrate; login-node-limits caution | NM-8 | image_build, image_migrate |
 | v0.4 — ML & workflow enablement | TensorBoard, HPO/Ray-on-SLURM, distributed training, workflow-engine selector, Jupyter kernels | NM-11..15 | kernel_build |
 | v0.5 — Build doctor & applications | compiler/PrgEnv doctor, math libs, module resolver, license preflight, Darshan/Drishti postmortem | NM-16..20 | module resolver |

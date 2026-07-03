@@ -7,7 +7,7 @@ and when it conflicts with your own judgment, **the contract wins**.
 ## The one-paragraph orientation
 
 The design is settled and documented in **DESIGN.md** — read §2 (invariants) and §7
-(working agreement) before your first edit, every session. The v1 tool list (8 tools) is
+(working agreement) before your first edit, every session. The v1 tool list (11 tools as of v0.2) is
 **closed**: you may not add, rename, remove, or change the semantics of a tool without
 the user approving a spec change first. Your job is almost always: implement or fix ONE
 ticket from the Loop board, inside the existing structure, with its acceptance criteria

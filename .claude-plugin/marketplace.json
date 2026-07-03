@@ -1,0 +1,14 @@
+{
+  "name": "nersc-claude-plugin",
+  "owner": {
+    "name": "cedriclim1"
+  },
+  "plugins": [
+    {
+      "name": "nersc",
+      "source": "./",
+      "description": "NERSC Perlmutter MCP server + /nersc skill",
+      "version": "0.2.0"
+    }
+  ]
+}

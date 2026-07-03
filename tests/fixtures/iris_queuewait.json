@@ -1,0 +1,288 @@
+{
+  "data": {
+    "queueWaitTime": {
+      "queueWaitTime": [
+        {
+          "qos": "RESERVE",
+          "nodes": 1,
+          "hours": null,
+          "waitHours": null,
+          "jobCount": 71.0,
+          "maxWaitHours": null
+        },
+        {
+          "qos": "badger",
+          "nodes": 1,
+          "hours": 6,
+          "waitHours": 0.0,
+          "jobCount": 4.0,
+          "maxWaitHours": 0.0
+        },
+        {
+          "qos": "cron",
+          "nodes": 1,
+          "hours": 1,
+          "waitHours": 0.023045688516717688,
+          "jobCount": 14808.0,
+          "maxWaitHours": 15.91388888888889
+        },
+        {
+          "qos": "debug",
+          "nodes": 1,
+          "hours": 1,
+          "waitHours": 0.7329583373286029,
+          "jobCount": 31287.0,
+          "maxWaitHours": 21.9325
+        },
+        {
+          "qos": "debug_preempt",
+          "nodes": 1,
+          "hours": 1,
+          "waitHours": 0.05444444444444444,
+          "jobCount": 1.0,
+          "maxWaitHours": 0.05444444444444444
+        },
+        {
+          "qos": "express_amsc",
+          "nodes": 1,
+          "hours": 1,
+          "waitHours": 0.0007264957264957265,
+          "jobCount": 39.0,
+          "maxWaitHours": 0.0030555555555555557
+        },
+        {
+          "qos": "interactive",
+          "nodes": 1,
+          "hours": 1,
+          "waitHours": 0.0022449528687003635,
+          "jobCount": 5988.0,
+          "maxWaitHours": 0.9413888888888889
+        },
+        {
+          "qos": "jupyter",
+          "nodes": 1,
+          "hours": 1,
+          "waitHours": 0.001138888888888889,
+          "jobCount": 20.0,
+          "maxWaitHours": 0.0030555555555555557
+        },
+        {
+          "qos": "overrun",
+          "nodes": 1,
+          "hours": 1,
+          "waitHours": 36.16888888888889,
+          "jobCount": 1.0,
+          "maxWaitHours": 36.16888888888889
+        },
+        {
+          "qos": "preempt",
+          "nodes": 1,
+          "hours": 2,
+          "waitHours": 1.748143274853801,
+          "jobCount": 19.0,
+          "maxWaitHours": 11.492777777777778
+        },
+        {
+          "qos": "premium",
+          "nodes": 1,
+          "hours": 1,
+          "waitHours": 0.015,
+          "jobCount": 2.0,
+          "maxWaitHours": 0.03
+        },
+        {
+          "qos": "realtime_als",
+          "nodes": 1,
+          "hours": 1,
+          "waitHours": 0.001,
+          "jobCount": 1.0,
+          "maxWaitHours": 0.001
+        },
+        {
+          "qos": "realtime_desi",
+          "nodes": 1,
+          "hours": 1,
+          "waitHours": 0.002,
+          "jobCount": 1.0,
+          "maxWaitHours": 0.002
+        },
+        {
+          "qos": "realtime_lcls",
+          "nodes": 1,
+          "hours": 1,
+          "waitHours": 0.003,
+          "jobCount": 1.0,
+          "maxWaitHours": 0.003
+        },
+        {
+          "qos": "realtime_m3795",
+          "nodes": 1,
+          "hours": 1,
+          "waitHours": 0.004,
+          "jobCount": 1.0,
+          "maxWaitHours": 0.004
+        },
+        {
+          "qos": "realtime_m4616",
+          "nodes": 1,
+          "hours": 1,
+          "waitHours": 0.005,
+          "jobCount": 1.0,
+          "maxWaitHours": 0.005
+        },
+        {
+          "qos": "realtime_m5070",
+          "nodes": 1,
+          "hours": 1,
+          "waitHours": 0.006,
+          "jobCount": 1.0,
+          "maxWaitHours": 0.006
+        },
+        {
+          "qos": "realtime_m5149",
+          "nodes": 1,
+          "hours": 1,
+          "waitHours": 0.007,
+          "jobCount": 1.0,
+          "maxWaitHours": 0.007
+        },
+        {
+          "qos": "realtime_nstaff",
+          "nodes": 1,
+          "hours": 1,
+          "waitHours": 0.008,
+          "jobCount": 1.0,
+          "maxWaitHours": 0.008
+        },
+        {
+          "qos": "regular_1",
+          "nodes": 1,
+          "hours": 1,
+          "waitHours": 2.0,
+          "jobCount": 10.0,
+          "maxWaitHours": 8.0
+        },
+        {
+          "qos": "regular_1",
+          "nodes": 1,
+          "hours": 1,
+          "waitHours": null,
+          "jobCount": 5.0,
+          "maxWaitHours": null
+        },
+        {
+          "qos": "regular_1",
+          "nodes": 2,
+          "hours": 1,
+          "waitHours": 4.5,
+          "jobCount": 8.0,
+          "maxWaitHours": 18.0
+        },
+        {
+          "qos": "regular_1",
+          "nodes": 4,
+          "hours": 2,
+          "waitHours": 6.25,
+          "jobCount": 12.0,
+          "maxWaitHours": 20.0
+        },
+        {
+          "qos": "RESERVE",
+          "nodes": 4,
+          "hours": null,
+          "waitHours": null,
+          "jobCount": 19.0,
+          "maxWaitHours": null
+        },
+        {
+          "qos": "debug",
+          "nodes": 2,
+          "hours": 1,
+          "waitHours": 0.1881947000368053,
+          "jobCount": 8151.0,
+          "maxWaitHours": 19.983888888888888
+        },
+        {
+          "qos": "interactive",
+          "nodes": 4,
+          "hours": 4,
+          "waitHours": 0.0554032678680623,
+          "jobCount": 6178.0,
+          "maxWaitHours": 3.9580555555555557
+        },
+        {
+          "qos": "overrun",
+          "nodes": 2,
+          "hours": 6,
+          "waitHours": 366.8230555555556,
+          "jobCount": 2.0,
+          "maxWaitHours": 366.95972222222224
+        },
+        {
+          "qos": "preempt",
+          "nodes": 4,
+          "hours": 4,
+          "waitHours": 13.187532763532763,
+          "jobCount": 195.0,
+          "maxWaitHours": 23.19472222222222
+        },
+        {
+          "qos": "regular_1",
+          "nodes": 8,
+          "hours": 1,
+          "waitHours": 3.2,
+          "jobCount": 25.0,
+          "maxWaitHours": 12.5
+        },
+        {
+          "qos": "regular_1",
+          "nodes": 16,
+          "hours": 12,
+          "waitHours": 19.4,
+          "jobCount": 7.0,
+          "maxWaitHours": 42.0
+        },
+        {
+          "qos": "regular_1",
+          "nodes": 20,
+          "hours": 24,
+          "waitHours": 122.45385900140647,
+          "jobCount": 158.0,
+          "maxWaitHours": 342.0258333333333
+        },
+        {
+          "qos": "regular_1",
+          "nodes": 24,
+          "hours": 1,
+          "waitHours": 25.105691550925926,
+          "jobCount": 384.0,
+          "maxWaitHours": 100.035
+        },
+        {
+          "qos": "regular_1",
+          "nodes": 32,
+          "hours": 48,
+          "waitHours": 55.73631944444445,
+          "jobCount": 16.0,
+          "maxWaitHours": 105.52833333333334
+        },
+        {
+          "qos": "regular_1",
+          "nodes": 40,
+          "hours": 24,
+          "waitHours": 22.424565217391304,
+          "jobCount": 23.0,
+          "maxWaitHours": 53.833333333333336
+        },
+        {
+          "qos": "regular_1",
+          "nodes": 58,
+          "hours": 6,
+          "waitHours": 5.535,
+          "jobCount": 15.0,
+          "maxWaitHours": 14.175555555555556
+        }
+      ]
+    }
+  }
+}
