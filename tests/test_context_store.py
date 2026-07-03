@@ -63,7 +63,8 @@ def test_get_job_context_untested_changed_matrix(monkeypatch, tmp_path, history,
     def fake_run(argv, timeout=30, stdin_text=None):
         if argv[0] == "sacctmgr":
             return 0, "m5020\nm1000\nm5020\n", ""
-        if argv[0] == "module":
+        if os.path.basename(argv[0]) == "lmod" or argv[0] == "module":
+            assert argv[1:] == ["bash", "avail", "cudatoolkit"]
             return 0, "", "cudatoolkit/12.2 cudatoolkit/12.4\n"
         if argv[0] == "sacct":
             return 0, SACCT_HISTORY, ""

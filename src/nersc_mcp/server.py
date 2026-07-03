@@ -20,7 +20,7 @@ from .tools.queue_advise import queue_advise as _queue_advise
 from .tools.queue_wait import queue_wait_stats as _queue_wait_stats
 from .tools.status import nersc_status as _status
 from .tools.storage import check_storage as _storage
-from .tools.submit import SubmitSpec, submit_job as _submit
+from .tools.submit import submit_job as _submit
 
 app = FastMCP("nersc")
 
@@ -36,7 +36,11 @@ def nersc_status() -> str:
 
 
 @app.tool()
-def submit_job(spec: Optional[SubmitSpec] = None, script_body: Optional[str] = None,
+def submit_job(
+               # Keep this as dict: FastMCP pre-validates typed SubmitSpec params
+               # before tool code runs, bypassing the I6/DESIGN error envelope.
+               # The docstring surfaces the schema; tools/submit.py validates it.
+               spec: Optional[dict] = None, script_body: Optional[str] = None,
                dry_run: bool = False) -> str:
     """Build and submit a validated sbatch job. Pass spec={nodes,time,constraint:'cpu'|'gpu',qos,account,command,gpus?,ntasks_per_node?,cpus_per_task?,gpu_bind?,env_lines?,script_path?,job_name?} to have the script generated with all mandatory flags and known-good GPU env exports, or script_body to validate+submit your own. dry_run=true returns the exact script without submitting — use it to review first."""
     return _j(_submit(spec=spec, script_body=script_body, dry_run=dry_run))

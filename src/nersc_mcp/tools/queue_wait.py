@@ -71,6 +71,9 @@ def queue_wait_stats(constraint: str, qos: str, hours: float, nodes: int = 1,
         return err("bad_args", f"unknown Iris QOS mapping for constraint={constraint!r}, qos={qos!r}",
                    ", ".join(valid))
 
+    # Assumption: these times are the server host's local time. The server runs
+    # on Perlmutter login nodes, whose local time matches Iris's data timezone;
+    # do not convert to UTC without verifying Iris semantics.
     now = _now or datetime.now()
     long_start = now - timedelta(days=window_days_i)
     short_start = (now - timedelta(days=1)).replace(hour=0, minute=0, second=0,

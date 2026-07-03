@@ -30,6 +30,7 @@ After install:
 - Ask Claude to run `nersc_status`.
 - The plugin ships a `/nersc` skill for guided Perlmutter submission, monitoring, queue forecasts, postmortems, and storage checks.
 - Confirm `tools/list` count matches the README tool table below.
+- The plugin targets Perlmutter login nodes (Linux); installing from a non-NERSC machine is not supported until the SFAPI backend in v0.7.
 
 If the install fails:
 

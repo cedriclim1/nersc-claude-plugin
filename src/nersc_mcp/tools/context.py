@@ -30,7 +30,8 @@ def parse_cudatoolkit_modules(text: str) -> List[str]:
 
 
 def _cudatoolkit_modules() -> tuple:
-    rc, out, errtxt = slurm.run(["module", "avail", "cudatoolkit"])
+    lmod = os.environ.get("LMOD_CMD", "module")
+    rc, out, errtxt = slurm.run([lmod, "bash", "avail", "cudatoolkit"])
     text = "\n".join([out, errtxt])
     versions = parse_cudatoolkit_modules(text)
     if rc != 0:

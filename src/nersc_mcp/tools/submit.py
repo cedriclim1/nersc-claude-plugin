@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from .. import knowledge, slurm, store
 from ..util import err, result
@@ -21,8 +21,8 @@ from .context import history_flags, parse_sacct_job_states
 
 REQUIRED = ("nodes", "time", "constraint", "qos", "account")
 
-# The installed MCP SDK depends on pydantic, so using BaseModel for tools/list
-# schema is allowed under DESIGN.md I8; no new runtime dependency is introduced.
+# Pydantic is declared directly because SubmitSpec is the single source of
+# field truth for submit specs and is also part of the MCP validation stack.
 class SubmitSpec(BaseModel):
     nodes: int
     time: str
@@ -145,11 +145,20 @@ def validate_script_body(script: str) -> Optional[str]:
 
 
 def _spec_dict(spec) -> dict:
+    # FastMCP pre-validation of Optional[SubmitSpec] rejects malformed nested
+    # fields before submit_job can return the hard-rule-6 / DESIGN I6 envelope.
+    # Keep server.py's boundary as Optional[dict], document the schema there,
+    # and validate here so failures stay {ok:false, error:{...}}.
     if hasattr(spec, "model_dump"):
-        return spec.model_dump(exclude_none=True)
-    if hasattr(spec, "dict"):
-        return spec.dict(exclude_none=True)
-    return dict(spec)
+        data = spec.model_dump(exclude_none=True)
+    elif hasattr(spec, "dict"):
+        data = spec.dict(exclude_none=True)
+    else:
+        data = dict(spec)
+    model = SubmitSpec(**data)
+    if hasattr(model, "model_dump"):
+        return model.model_dump(exclude_none=True)
+    return model.dict(exclude_none=True)
 
 
 def _script_hash_for_body(script: str) -> str:
@@ -242,16 +251,17 @@ def _start_estimate(jobid: Optional[str], hints: List[str]) -> Optional[str]:
     if not jobid:
         hints.append("start_estimate unavailable because no jobid was parsed")
         return None
-    rc, out, errtxt = slurm.run(["squeue", "--start", "-j", jobid])
+    rc, out, errtxt = slurm.run(["squeue", "--start", "-j", jobid, "-o", "%i|%S", "-h"])
     if rc != 0:
         hints.append(f"squeue --start failed; start estimate unavailable: {errtxt.strip() or out.strip()}")
         return None
     for line in out.splitlines():
-        if jobid in line and not line.lower().startswith("jobid"):
-            parts = line.split()
-            if len(parts) >= 6:
-                return parts[5]
-            return line.strip()
+        parts = [part.strip() for part in line.split("|", 1)]
+        if len(parts) != 2 or parts[0] != jobid:
+            continue
+        if parts[1] and parts[1].upper() != "N/A":
+            return parts[1]
+        break
     hints.append("squeue --start returned no estimate for this job")
     return None
 
@@ -266,7 +276,13 @@ def submit_job(spec: Optional[dict] = None, script_body: Optional[str] = None,
     script_path = None
     spec_data = None
     if spec is not None:
-        spec_data = _spec_dict(spec)
+        try:
+            spec_data = _spec_dict(spec)
+        except ValidationError as exc:
+            first = exc.errors()[0] if exc.errors() else {}
+            loc = ".".join(str(item) for item in first.get("loc", ())) or "spec"
+            msg = first.get("msg", str(exc))
+            return err("validation", f"{loc}: {msg}", str(exc))
         script_path = spec_data.get("script_path")
         try:
             script, warnings, hints = build_script(spec_data)
@@ -289,8 +305,11 @@ def submit_job(spec: Optional[dict] = None, script_body: Optional[str] = None,
             untested = flags["untested"]
         else:
             untested = not _completed_history_for_hash(content_hash)
-        if untested and qos != "debug":
-            warnings.append("This script/content has no COMPLETED history; submit with qos=debug first when feasible before using a longer or larger QOS.")
+        if untested and "debug" not in str(qos).lower():
+            warning = "This script/content has no COMPLETED history; submit with qos=debug first when feasible before using a longer or larger QOS."
+            if spec_data is None and not script_path:
+                warning += " (pass spec.script_path instead to enable history tracking so this warning clears after a COMPLETED run)"
+            warnings.append(warning)
     submit_dir = str(Path(script_path).expanduser().resolve().parent) if script_path else os.getcwd()
     warnings.extend(_storage_warnings(script, submit_dir))
 

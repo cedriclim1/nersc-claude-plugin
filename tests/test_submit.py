@@ -106,7 +106,7 @@ def test_real_submit_parses_jobid(monkeypatch):
     monkeypatch.setattr(submit.slurm, "run",
                         lambda argv, timeout=30, stdin_text=None:
                         (0, "Submitted batch job 55123\n", "") if argv[0] == "sbatch"
-                        else (0, "JOBID PARTITION NAME USER ST START_TIME NODES SCHEDNODES NODELIST(REASON)\n55123 regular j u PD 2026-07-03T12:00:00 1 n/a (Priority)\n", ""))
+                        else (0, "55123|2026-07-03T12:00:00\n", ""))
     res = submit.submit_job(spec=GPU_SPEC)
     assert res["ok"] and res["data"]["jobid"] == "55123"
     assert res["data"]["start_estimate"] == "2026-07-03T12:00:00"
@@ -141,6 +141,24 @@ def test_debug_first_warning_not_for_debug(monkeypatch, tmp_path):
     script.write_text("#!/bin/bash\n")
     res = submit.submit_job(spec={**GPU_SPEC, "qos": "debug", "script_path": str(script)}, dry_run=True)
     assert not any("qos=debug first" in w for w in res["warnings"])
+
+
+def test_debug_first_warning_not_for_debug_tier_script_body(monkeypatch, tmp_path):
+    monkeypatch.setenv("NERSC_MCP_STATE_PATH", str(tmp_path / "state.json"))
+    monkeypatch.chdir(tmp_path)
+    script = ("#!/bin/bash\n#SBATCH -C cpu\n#SBATCH -q debug_preempt\n#SBATCH -t 00:05:00\n"
+              "#SBATCH -A m5020\n#SBATCH -N 1\nsrun hostname\n")
+    res = submit.submit_job(script_body=script, dry_run=True)
+    assert not any("qos=debug first" in w for w in res["warnings"])
+
+
+def test_script_body_untested_warning_explains_history_tracking(monkeypatch, tmp_path):
+    monkeypatch.setenv("NERSC_MCP_STATE_PATH", str(tmp_path / "state.json"))
+    monkeypatch.chdir(tmp_path)
+    script = ("#!/bin/bash\n#SBATCH -C cpu\n#SBATCH -q regular\n#SBATCH -t 04:00:00\n"
+              "#SBATCH -A m5020\n#SBATCH -N 1\nsrun hostname\n")
+    res = submit.submit_job(script_body=script, dry_run=True)
+    assert any("pass spec.script_path instead" in w for w in res["warnings"])
 
 
 def test_storage_warning_for_output_under_home(monkeypatch, tmp_path):

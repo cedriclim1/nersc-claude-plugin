@@ -17,6 +17,10 @@ record the approval in the ticket before editing this file.
 - 2026-07-03 (user-approved on Loop board, NM-9): v0.2 adds tool #10
   `get_job_context` and tool #11 `save_job_profile`; `submit_job` gains profile/history
   UX warnings while keeping both original input paths.
+- 2026-07-03 (user-approved in v0.2 review): for object-shaped tool params,
+  I6 envelope preservation wins over nested tools/list schema pre-validation.
+  `submit_job.spec` stays documented in the docstring and is validated inside
+  the tool body with `SubmitSpec`.
 
 This document is written to be executed by agents of varying capability. If you are an
 agent working on this codebase: **read §2 and §7 before writing any code, and re-read the
@@ -84,7 +88,7 @@ to any invariant requires user sign-off; a PR that weakens one must be rejected.
 - **I7 — No flock on CFS.** Any locking the server ever needs uses atomic `mkdir`
   spin-locks (lesson `flock-unsupported-on-cfs`).
 - **I8 — stdlib-only runtime deps** beyond the `mcp` package. No heavy imports at server
-  startup (login-node budget, I2).
+  startup (login-node budget, I2). `pydantic` is allowed as the MCP validation stack.
 
 ## 3. Architecture
 
@@ -93,7 +97,7 @@ to any invariant requires user sign-off; a PR that weakens one must be rejected.
 - **Layout:**
   ```
   nersc-mcp/
-    pyproject.toml          # deps: mcp; dev: pytest
+    pyproject.toml          # deps: mcp, pydantic; dev: pytest
     src/nersc_mcp/
       server.py             # FastMCP app: tool registrations only — no logic
       slurm.py              # subprocess wrappers: run(), parse helpers (pure functions)
@@ -118,7 +122,10 @@ to any invariant requires user sign-off; a PR that weakens one must be rejected.
 
 ## 4. v1 tool surface (11 tools — build exactly these)
 
-Every tool: snake_case name, typed params, docstring = what Claude sees. Acceptance
+Every tool: snake_case name, typed primitive params, docstring = what Claude sees.
+For object-shaped params, the I6 envelope invariant wins over FastMCP nested field
+pre-validation: register the boundary as an object/dict, document fields in the
+docstring, and validate inside tool code. Acceptance
 criteria (AC) are testable; a tool's ticket is not done until its ACs pass.
 
 1. **`nersc_status()`** — read-only. User's queue (`squeue --me`), recent completions
