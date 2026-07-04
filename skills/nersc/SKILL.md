@@ -12,6 +12,8 @@ Perlmutter.
 
 ## Arm the tools first
 
+(On Claude Code >= 2.1.121, schemas are already loaded via `alwaysLoad`; if the nersc tools are directly callable, skip the ToolSearch step.)
+
 Before ANY other action on ANY /nersc request, run ONE batched ToolSearch call that
 loads every nersc tool schema. Never call the tools before their schemas are loaded;
 never fall back to raw shell because a tool "isn't available".

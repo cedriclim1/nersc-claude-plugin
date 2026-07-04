@@ -19,6 +19,7 @@ After install:
 - Use `/nersc` for guided Perlmutter submission, monitoring, queue forecasts, postmortems, and storage checks.
 - Platform note: the plugin targets Perlmutter login nodes (Linux); installing from a non-NERSC machine is not supported until the SFAPI backend in v0.7.
 - MCP registration lives inline in `.claude-plugin/plugin.json`; the repo intentionally has no root `.mcp.json`.
+- On Claude Code >= 2.1.121, the plugin's tool schemas load eagerly at session start via `alwaysLoad`; on older versions they are deferred, and the `/nersc` skill's arm-first ToolSearch step covers it.
 
 The plugin bootstrap self-heals its data virtualenv. On startup it rebuilds the venv once when the console script is missing, import sanity fails, the console script shebang points at a missing interpreter, the plugin root moved (detected by build-stamp root mismatch), or an older venv has no build stamp. Run the bootstrap with `--refresh` for an unconditional rebuild.
 
