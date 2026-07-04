@@ -10,6 +10,41 @@ description: Drive NERSC Perlmutter through the nersc MCP tools — submit and m
 Use this skill whenever the user wants to run, submit, monitor, or debug work on NERSC
 Perlmutter.
 
+## Arm the tools first
+
+Before ANY other action on ANY /nersc request, run ONE batched ToolSearch call that
+loads every nersc tool schema. Never call the tools before their schemas are loaded;
+never fall back to raw shell because a tool "isn't available".
+
+Use the FULLY-QUALIFIED tool names exactly as they appear in the harness's deferred-tools
+list. Plugin installs look like `mcp__plugin_nersc_nersc__check_storage`. NEVER use bare
+names like `check_storage`: `select:` is exact-match and returns zero results for bare
+names, silently.
+
+For a plugin install, the one `select:` batch should arm these 11 registered tools:
+
+- `mcp__plugin_nersc_nersc__nersc_status`
+- `mcp__plugin_nersc_nersc__submit_job`
+- `mcp__plugin_nersc_nersc__job_status`
+- `mcp__plugin_nersc_nersc__job_postmortem`
+- `mcp__plugin_nersc_nersc__cancel_job`
+- `mcp__plugin_nersc_nersc__queue_advise`
+- `mcp__plugin_nersc_nersc__queue_wait_stats`
+- `mcp__plugin_nersc_nersc__allocate_interactive`
+- `mcp__plugin_nersc_nersc__check_storage`
+- `mcp__plugin_nersc_nersc__get_job_context`
+- `mcp__plugin_nersc_nersc__save_job_profile`
+
+If the harness shows a different prefix, use that prefix with the same 11 registered tool
+suffixes. If unsure of the prefix, use a keyword query (`ToolSearch "nersc"` with a high
+max_results) instead of `select:`; keyword search matches substrings of qualified names.
+Batch ALL tools you might need in the ONE call. A second ToolSearch round-trip is a bug,
+not a plan.
+
+NEVER run `du`, `df`, `find`, or other filesystem scans on a login node. Directory sizes
+and quota come from `check_storage`; sizing a large tree is an xfer-queue job, not a
+login-node command.
+
 ## Tool Composition Basics
 
 <!-- wiki: slurm-jobs -->
