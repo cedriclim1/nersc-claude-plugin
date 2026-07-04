@@ -30,6 +30,14 @@ If the install fails:
 
 Then delete the plugin data venv at `~/.claude/plugins/data/<plugin-id>/venv` and reinstall. The bare registration path below always works as a fallback.
 
+## Choosing your Python and install location
+
+The plugin prompts for two optional settings when enabled: **Python interpreter** and **Install/data directory**. Leave them empty to use `python3` from `PATH` and Claude's plugin data directory.
+
+For bare or ssh-stdio registration, use the equivalent environment variables: `NERSC_MCP_PYTHON` for the Python used to build the venv, and `NERSC_MCP_DATA` for the venv/server data directory. Python selection is `NERSC_MCP_PYTHON`, then the plugin option export, then `python3` from `PATH`; data directory selection is `NERSC_MCP_DATA`, then `CLAUDE_PLUGIN_DATA`, then `~/.local/share/nersc-mcp`.
+
+On Perlmutter, run `module load python` before starting Claude, or set **Python interpreter** to an absolute conda/env Python path. The interpreter must be Python 3.10 or newer.
+
 ## What you can say
 
 | prompt | what happens |

@@ -15,11 +15,26 @@
     "perlmutter",
     "mcp"
   ],
+  "userConfig": {
+    "nersc_python": {
+      "type": "string",
+      "title": "Python interpreter",
+      "description": "Absolute path to the Python (>=3.10) used to build the plugin venv. Leave empty to use python3 from PATH (module load python first on Perlmutter).",
+      "required": false
+    },
+    "nersc_data_dir": {
+      "type": "string",
+      "title": "Install/data directory",
+      "description": "Override where the plugin virtualenv and server data live. Leave empty to use the default plugin data directory.",
+      "required": false
+    }
+  },
   "mcpServers": {
     "nersc": {
       "command": "${CLAUDE_PLUGIN_ROOT}/bin/plugin-bootstrap.sh",
       "env": {
-        "NERSC_MCP_DATA": "${CLAUDE_PLUGIN_DATA}"
+        "NERSC_MCP_PYTHON": "${user_config.nersc_python}",
+        "NERSC_MCP_DATA": "${user_config.nersc_data_dir}"
       }
     }
   },

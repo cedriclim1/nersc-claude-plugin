@@ -127,8 +127,9 @@ make_fake_venv() {
 write_stamp() {
     local data="$1"
     local root="$2"
+    local python="$3"
 
-    printf 'root=%s\n' "$root" > "$data/build-stamp"
+    printf 'root=%s\npython=%s\n' "$root" "$python" > "$data/build-stamp"
 }
 
 prepare_case() {
@@ -149,6 +150,8 @@ run_bootstrap() {
 
     if output="$(env \
         NERSC_MCP_DATA="$data" \
+        NERSC_MCP_PYTHON="${NERSC_MCP_PYTHON:-}" \
+        CLAUDE_PLUGIN_OPTION_NERSC_PYTHON="${CLAUDE_PLUGIN_OPTION_NERSC_PYTHON:-}" \
         CLAUDE_PLUGIN_ROOT="$ROOT" \
         BOOTSTRAP_BUILD_COUNT="$counter" \
         BOOTSTRAP_PYTHON_SHIM="$BOOTSTRAP_PYTHON_SHIM" \
@@ -188,28 +191,73 @@ record_result() {
     failures=$((failures + 1))
 }
 
+record_stamp_python() {
+    local name="$1"
+    local data="$2"
+    local expected="$3"
+    local actual=""
+
+    if [ -f "$data/build-stamp" ]; then
+        actual="$(awk -F= '$1 == "python" { print substr($0, index($0, "=") + 1); found=1; exit } END { if (!found) exit 1 }' "$data/build-stamp" || true)"
+    fi
+
+    if [ "$actual" = "$expected" ]; then
+        printf 'PASS %s\n' "$name"
+        return
+    fi
+
+    printf 'FAIL %s\n' "$name"
+    printf '  expected stamp python: %s\n' "$expected"
+    printf '  actual stamp python:   %s\n' "$actual"
+    failures=$((failures + 1))
+}
+
 prepare_case healthy_matching_stamp
 make_fake_venv "$DATA_DIR" "$DATA_DIR/venv/bin/python3"
-write_stamp "$DATA_DIR" "$ROOT"
+write_stamp "$DATA_DIR" "$ROOT" "$BOOTSTRAP_PYTHON_SHIM"
+unset NERSC_MCP_PYTHON
 run_bootstrap "$DATA_DIR" "$COUNTER"
 record_result "healthy fake venv + matching stamp" 0
 
 prepare_case dead_shebang
 make_fake_venv "$DATA_DIR" "/nonexistent/python3"
-write_stamp "$DATA_DIR" "$ROOT"
+write_stamp "$DATA_DIR" "$ROOT" "$BOOTSTRAP_PYTHON_SHIM"
+unset NERSC_MCP_PYTHON
 run_bootstrap "$DATA_DIR" "$COUNTER"
 record_result "dead console-script shebang" 1
 
 prepare_case stamp_root_mismatch
 make_fake_venv "$DATA_DIR" "$DATA_DIR/venv/bin/python3"
-write_stamp "$DATA_DIR" "/old/plugin/root"
+write_stamp "$DATA_DIR" "/old/plugin/root" "$BOOTSTRAP_PYTHON_SHIM"
+unset NERSC_MCP_PYTHON
 run_bootstrap "$DATA_DIR" "$COUNTER"
 record_result "stamp root mismatch" 1
 
 prepare_case refresh
 make_fake_venv "$DATA_DIR" "$DATA_DIR/venv/bin/python3"
-write_stamp "$DATA_DIR" "$ROOT"
+write_stamp "$DATA_DIR" "$ROOT" "$BOOTSTRAP_PYTHON_SHIM"
+unset NERSC_MCP_PYTHON
 run_bootstrap "$DATA_DIR" "$COUNTER" --refresh
 record_result "--refresh" 1
+
+prepare_case custom_python
+export NERSC_MCP_PYTHON="$BOOTSTRAP_PYTHON_SHIM"
+run_bootstrap "$DATA_DIR" "$COUNTER"
+record_result "custom Python interpreter first build" 1
+record_stamp_python "custom Python interpreter stamped" "$DATA_DIR" "$BOOTSTRAP_PYTHON_SHIM"
+run_bootstrap "$DATA_DIR" "$COUNTER"
+record_result "custom Python interpreter second run" 1
+
+prepare_case custom_python_changed
+ALT_PYTHON="$SHIM_DIR/python-alt"
+write_fake_python "$ALT_PYTHON"
+export NERSC_MCP_PYTHON="$BOOTSTRAP_PYTHON_SHIM"
+run_bootstrap "$DATA_DIR" "$COUNTER"
+record_result "custom Python before change" 1
+export NERSC_MCP_PYTHON="$ALT_PYTHON"
+run_bootstrap "$DATA_DIR" "$COUNTER"
+record_result "custom Python changed rebuilds once" 2
+run_bootstrap "$DATA_DIR" "$COUNTER"
+record_result "custom Python changed then stable" 2
 
 exit "$failures"
