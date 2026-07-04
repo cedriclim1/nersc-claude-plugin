@@ -1,7 +1,8 @@
 #!/bin/sh
 cat <<'EOF'
-This session runs on NERSC Perlmutter with the nersc plugin's 11 MCP tools loaded.
+This session runs on NERSC Perlmutter with the nersc plugin's MCP tools loaded.
 For ANY storage, quota, disk-usage, data-placement, or data-movement question ($SCRATCH vs CFS vs $HOME, migrating projects, I/O problems), call check_storage FIRST.
+(If the nersc tools are not yet loaded in this session, first arm them with one batched ToolSearch -- see the /nersc skill.)
 check_storage reports quotas, placement advice, and purge policy.
 Never run raw du/df/find scans on a login node.
 Sizing a large tree is an xfer-queue job.

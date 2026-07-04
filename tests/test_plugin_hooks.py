@@ -41,6 +41,20 @@ def test_session_context_script_is_static_and_fast():
     assert not {"curl", "ssh", "python"} & tokens
 
 
+@pytest.mark.skipif(shutil.which("git") is None, reason="git is not available")
+def test_session_context_script_is_tracked_executable():
+    result = subprocess.run(
+        ["git", "ls-tree", "HEAD", "--", "hooks/session-context.sh"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        timeout=5,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.startswith("100755"), result.stdout
+
+
 @pytest.mark.skipif(shutil.which("sh") is None, reason="sh is not available")
 def test_session_context_script_outputs_compact_context():
     result = subprocess.run(
