@@ -87,24 +87,38 @@ def user_projects() -> list:
     return sorted(set(names))
 
 
-def _quota_rows(argv: list, warnings: list, label: str, raw: dict) -> list:
-    """Run one showquota variant. Prefers JSON; retries without -J if the
-    installed showquota rejects the flag; falls back to the table parse,
-    normalized to the JSON keys. Raw text is kept under data.raw[label]."""
-    rc, out, errtxt = slurm.run(argv)
-    if rc != 0 and "-J" in argv:
-        rc, out, errtxt = slurm.run([a for a in argv if a != "-J"])
-    if rc != 0:
-        warnings.append(f"{label} unavailable ({errtxt.strip() or rc}); not checked")
-        return []
-    raw[label] = out.strip()
+def _parse_any(out: str) -> list:
     rows = parse_showquota_json(out)
     if not rows:
         rows = [{"fs": r["filesystem"], "space_used": r["used"],
                  "space_quota": r["limit"]} for r in parse_showquota(out)]
+    return rows
+
+
+def _quota_rows(argv: list, warnings: list, label: str, raw: dict) -> list:
+    """Run one showquota variant. Prefers JSON; retries without -J if the
+    installed showquota rejects the flag; falls back to the table parse,
+    normalized to the JSON keys. Raw text is kept under data.raw[label].
+
+    showquota's exit code is the COUNT of filesystems over quota, not an
+    error status (live capture 2026-07-04: rc=1 with valid JSON when one
+    project's common space sat at 105%) — so judge by parseable output,
+    never by rc alone."""
+    rc, out, errtxt = slurm.run(argv)
+    rows = _parse_any(out)
+    if not rows and rc != 0 and "-J" in argv:
+        rc, out, errtxt = slurm.run([a for a in argv if a != "-J"])
+        rows = _parse_any(out)
     if not rows:
-        warnings.append(f"{label} output did not match the JSON or table "
-                        f"format — see data.raw['{label}']")
+        if out.strip():
+            raw[label] = out.strip()
+            warnings.append(f"{label} output did not match the JSON or table "
+                            f"format — see data.raw['{label}']")
+        else:
+            warnings.append(f"{label} unavailable ({errtxt.strip() or rc}); "
+                            "not checked")
+        return []
+    raw[label] = out.strip()
     return rows
 
 

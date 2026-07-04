@@ -126,6 +126,28 @@ def test_storage_no_cmn_dir_skips_common(monkeypatch):
     assert res["data"]["project_quotas"][0]["fs"] == "m5020"
 
 
+def test_storage_rc_is_overquota_count_not_error(monkeypatch):
+    # showquota exits with the COUNT of over-quota filesystems; valid JSON on
+    # stdout with rc=1 must be kept (live capture 2026-07-04: cmn at 105%).
+    over = json.dumps([_q("m5241", sp="10.50GiB", sq="10.00GiB", spp="105.0%")])
+    calls = []
+    def fake(argv, timeout=30, stdin_text=None):
+        calls.append(list(argv))
+        if "--cmn" in argv:
+            return 1, over, ""
+        if "m5241" in argv:
+            return 0, JSON_CFS, ""
+        return 0, JSON_USER, ""
+    monkeypatch.setattr(storage.slurm, "run", fake)
+    monkeypatch.setattr(storage, "user_projects", lambda: ["m5241"])
+    monkeypatch.setattr(storage.os.path, "isdir", lambda p: True)
+    res = storage.check_storage()
+    assert res["data"]["global_common"]["quotas"][0]["space_perc"] == "105.0%"
+    assert any("105%" in w for w in res["warnings"])
+    # rc=1 with parseable JSON must NOT trigger the no-J retry
+    assert all("-J" in c for c in calls if "--cmn" in c)
+
+
 def test_storage_software_hint_mentions_inodes(monkeypatch):
     _mock(monkeypatch, storage, {"showquota": (0, JSON_USER, "")})
     res = storage.check_storage("software")
