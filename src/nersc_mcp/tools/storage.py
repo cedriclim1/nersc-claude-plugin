@@ -106,9 +106,13 @@ def _quota_rows(argv: list, warnings: list, label: str, raw: dict) -> list:
     never by rc alone."""
     rc, out, errtxt = slurm.run(argv)
     rows = _parse_any(out)
-    if not rows and rc != 0 and "-J" in argv:
+    # Retry only for a plausibly-rejected flag — not for a missing binary
+    # (127) or a timeout (124), where a second run just doubles the cost.
+    if not rows and rc not in (0, 124, 127) and "-J" in argv:
         rc, out, errtxt = slurm.run([a for a in argv if a != "-J"])
         rows = _parse_any(out)
+    if rows and rc == 124:
+        warnings.append(f"{label} timed out mid-output; rows may be incomplete")
     if not rows:
         if out.strip():
             raw[label] = out.strip()
