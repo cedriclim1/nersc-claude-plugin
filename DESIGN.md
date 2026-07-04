@@ -166,10 +166,17 @@ criteria (AC) are testable; a tool's ticket is not done until its ACs pass.
    (`SLURM_JOB_ID=<JID> srun --jobid=<JID> ...`) — the agent-shell ergonomics fix
    (friction-points §2). AC: returns the granted JID; the response includes the srun
    pattern verbatim.
-8. **`check_storage(path?)`** — quotas (`showquota`), placement advice for a given need
-   (software → /global/common; job I/O → $SCRATCH with purge warning; shared data → CFS;
-   never $HOME for parallel I/O), flock-on-CFS warning when relevant. AC: advice table
-   unit-tested; quota parse handles the real command output.
+8. **`check_storage(path?)`** — quotas (`showquota -J`, table fallback), placement
+   advice for a given need (software → /global/common; job I/O → $SCRATCH with purge
+   warning; shared data → CFS; never $HOME for parallel I/O), flock-on-CFS warning when
+   relevant. Also reports project-level context (amendment 2026-07-04, NM-36,
+   user-approved): CFS project quotas (`showquota -J -N <proj>`) and
+   `/global/common/software/<proj>` quotas (`--cmn`) for each project the user belongs
+   to (groups ∩ existing cdirs), with near-quota warnings at ≥85% space or inodes —
+   conda envs and shared software live there and are inode-heavy. HPSS quotas
+   (`--hpss`) deliberately deferred to a follow-up. AC: advice table
+   unit-tested; JSON + table quota parses handle the real command output;
+   project/common rows and the near-quota warning fixture-tested.
 9. **`queue_wait_stats(constraint, qos, hours, nodes=1, window_days=30)`** — expected
    queue wait for a job shape, from NERSC's queue-wait database (added by amendment
    2026-07-03, NM-10). Data source (probed and verified unauthenticated, from both

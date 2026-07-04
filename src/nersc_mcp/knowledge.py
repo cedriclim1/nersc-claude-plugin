@@ -134,3 +134,23 @@ PLACEMENT = {
 
 # --- Filesystem roots (wiki: filesystems) -----------------------------------
 CFS_ROOT = "/global/cfs"
+CFS_CDIRS = "/global/cfs/cdirs"
+GLOBAL_COMMON_ROOT = "/global/common/software"
+
+# --- Global common constraints (wiki: filesystems; showquota --cmn live
+# capture 2026-07-04: m5020 quota 100GiB space / 1M inodes) -------------------
+GLOBAL_COMMON_FACTS = {
+    "why_it_matters": "conda environments and shared software stacks live here; "
+                      "read-optimized and mounted read-only on compute nodes",
+    "write_from": "login nodes only (read-only on compute nodes)",
+    "quota_note": "small per-project quota (space AND inodes) — conda envs are "
+                  "inode-heavy and fill it fast",
+}
+
+# Warn when a filesystem crosses this used-percentage (space or inodes).
+# Threshold is ours, not NERSC's; jobs are rejected at 100% (wiki: filesystems).
+QUOTA_WARN_PERCENT = 85.0
+
+# Quota enforcement fact (wiki: filesystems; friction-points §4).
+QUOTA_ENFORCEMENT = ("quota is enforced at job submission AND at srun execution — "
+                     "an over-quota filesystem rejects your jobs")
