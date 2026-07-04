@@ -43,7 +43,7 @@ as the definition of done.
 5. Smoke: `python tests/integration/mcp_smoke.py .venv/bin/nersc-mcp` (on Perlmutter)
    or via `ssh perl .../run-server.sh` from a dev machine. Must print `SMOKE PASS`.
 6. Write the wiki ticket summary; run the review gate; mark done.
-7. Push, then sync the CFS clone: `ssh perl "cd /global/cfs/cdirs/m5020/nersc_mcp && git pull"`.
+7. Push, then sync the Perlmutter clone: `ssh perl "cd /pscratch/sd/c/cedlim/nersc_mcp && git pull"`.
 
 ## When you are surprised
 
@@ -58,6 +58,7 @@ is the most expensive failure mode in this codebase.
 |---|---|
 | Design spec (authoritative) | `DESIGN.md` |
 | Knowledge base / board / rules | Loop project `NERSC MCP` (key NM) — wiki concepts `mcp-tool-surface`, `friction-points`, `slurm-jobs`, `qos-policy` |
-| Deployment | `/global/cfs/cdirs/m5020/nersc_mcp` (git clone on CFS) |
+| Deployment | `/pscratch/sd/c/cedlim/nersc_mcp` (git clone on Perlmutter, moved from CFS 2026-07-03 for I/O) |
+| Plugin MCP registration | inline `mcpServers` object in `.claude-plugin/plugin.json`; no repo-root `.mcp.json` |
 | Dev harness | `tests/integration/mcp_smoke.py` over `ssh perl` |
 | v2 backlog (do NOT start unbidden) | image build/migrate, DTN/Globus transfers, sfapi backend — see wiki `underused-features` |

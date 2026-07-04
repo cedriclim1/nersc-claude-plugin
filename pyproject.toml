@@ -2,13 +2,13 @@
 name = "nersc-mcp"
 version = "0.2.1"
 description = "MCP server that runs natively on NERSC Perlmutter: safe, knowledge-encoded SLURM/storage tools for Claude Code"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 authors = [
     { name = "Cedric Lim" },
     { name = "Claude (Anthropic)" },
 ]
 dependencies = [
-    "mcp>=1.2.0",
+    "mcp>=1.3.0",
     "pydantic>=2",
 ]
 

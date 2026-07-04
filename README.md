@@ -18,6 +18,10 @@ After install:
 - Confirm `tools/list` reports the 11 tools listed below.
 - Use `/nersc` for guided Perlmutter submission, monitoring, queue forecasts, postmortems, and storage checks.
 - Platform note: the plugin targets Perlmutter login nodes (Linux); installing from a non-NERSC machine is not supported until the SFAPI backend in v0.7.
+- MCP registration lives inline in `.claude-plugin/plugin.json`; the repo intentionally has no root `.mcp.json`.
+- On Claude Code >= 2.1.121, the plugin's tool schemas load eagerly at session start via `alwaysLoad`; on older versions they are deferred, and the `/nersc` skill's arm-first ToolSearch step covers it.
+
+The plugin bootstrap self-heals its data virtualenv. On startup it rebuilds the venv once when the console script is missing, import sanity fails, the console script shebang points at a missing interpreter, the plugin root moved (detected by build-stamp root mismatch), or an older venv has no build stamp. Run the bootstrap with `--refresh` for an unconditional rebuild.
 
 If the install fails:
 
@@ -26,6 +30,14 @@ If the install fails:
 ```
 
 Then delete the plugin data venv at `~/.claude/plugins/data/<plugin-id>/venv` and reinstall. The bare registration path below always works as a fallback.
+
+## Choosing your Python and install location
+
+The plugin prompts for two optional settings when enabled: **Python interpreter** and **Install/data directory**. Leave them empty to use `python3` from `PATH` and Claude's plugin data directory.
+
+For bare or ssh-stdio registration, use the equivalent environment variables: `NERSC_MCP_PYTHON` for the Python used to build the venv, and `NERSC_MCP_DATA` for the venv/server data directory. Python selection is `NERSC_MCP_PYTHON`, then the plugin option export, then `python3` from `PATH`; data directory selection is `NERSC_MCP_DATA`, then `CLAUDE_PLUGIN_DATA`, then `~/.local/share/nersc-mcp`.
+
+On Perlmutter, run `module load python` before starting Claude, or set **Python interpreter** to an absolute conda/env Python path. The interpreter must be Python 3.10 or newer.
 
 ## What you can say
 
@@ -64,7 +76,7 @@ Then delete the plugin data venv at `~/.claude/plugins/data/<plugin-id>/venv` an
 ## Bare registration fallback
 
 ```bash
-claude mcp add nersc -- /global/cfs/cdirs/m5020/nersc_mcp/run-server.sh
+claude mcp add nersc -- /pscratch/sd/c/cedlim/nersc_mcp/run-server.sh
 ```
 
 Then run `claude` on Perlmutter and ask for `/nersc` help or call a tool directly.
@@ -74,7 +86,7 @@ Then run `claude` on Perlmutter and ask for `/nersc` help or call a tool directl
 ```bash
 .venv/bin/pytest
 python tests/integration/mcp_smoke.py .venv/bin/nersc-mcp
-python tests/integration/mcp_smoke.py ssh perl /global/cfs/cdirs/m5020/nersc_mcp/run-server.sh
+python tests/integration/mcp_smoke.py ssh perl /pscratch/sd/c/cedlim/nersc_mcp/run-server.sh
 ```
 
 Tests use mocked SLURM for unit coverage; the smoke checks exercise MCP stdio and stay read-only/dry-run. Layout: `src/nersc_mcp/server.py` registers tools, `tools/` holds one module per tool, `knowledge.py` holds NERSC facts, and `skills/nersc/SKILL.md` defines the Claude workflow. Read `DESIGN.md` before changing tool semantics; the 11-tool surface and invariants are load-bearing.

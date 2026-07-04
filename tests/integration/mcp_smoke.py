@@ -7,7 +7,7 @@ initialize, tools/list (11 tools), queue_advise, submit_job(dry_run).
 Usage:
   python tests/integration/mcp_smoke.py <command to start the server...>
 e.g. on Perlmutter:   python tests/integration/mcp_smoke.py .venv/bin/nersc-mcp
-from a dev machine:   python tests/integration/mcp_smoke.py ssh perl /global/cfs/cdirs/m5020/nersc_mcp/run-server.sh
+from a dev machine:   python tests/integration/mcp_smoke.py ssh perl /pscratch/sd/c/cedlim/nersc_mcp/run-server.sh
 """
 
 import json
