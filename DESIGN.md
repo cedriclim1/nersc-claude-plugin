@@ -97,7 +97,7 @@ to any invariant requires user sign-off; a PR that weakens one must be rejected.
 
 ## 3. Architecture
 
-- **Language/runtime:** Python ≥3.9 (Perlmutter's `module load python` provides it),
+- **Language/runtime:** Python ≥3.10 (Perlmutter's `module load python` provides it),
   official `mcp` Python SDK, **stdio transport only**.
 - **Layout:**
   ```

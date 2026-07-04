@@ -23,13 +23,10 @@ die() {
 }
 
 write_build_stamp() {
-    if ! {
-        printf 'root=%s\n' "$ROOT"
-        printf 'python=%s\n' "$PY"
-    } > "$STAMP"; then
+    printf 'root=%s\npython=%s\n' "$ROOT" "$PY" > "$STAMP" || {
         echo "failed to write build stamp at $STAMP" >&2
         return 1
-    fi
+    }
 }
 
 build_venv() {
@@ -63,6 +60,9 @@ select_python() {
 
     configured="$PY"
     if [ -z "$configured" ]; then
+        # Claude Code exports every plugin userConfig value as
+        # CLAUDE_PLUGIN_OPTION_<KEY>, so this remains a live fallback when
+        # manifest env substitution is unavailable.
         configured="${CLAUDE_PLUGIN_OPTION_NERSC_PYTHON:-}"
     fi
 
@@ -103,6 +103,7 @@ stamp_value() {
     key="$1"
     [ -f "$STAMP" ] || return 1
     while IFS= read -r line || [ -n "$line" ]; do
+        line="${line%$'\r'}"
         if [ "${line%%=*}" = "$key" ]; then
             printf '%s\n' "${line#*=}"
             return 0
@@ -136,7 +137,7 @@ stamp_mismatch_reason() {
 
 
 sanity_ok() {
-    local script first interp leading_ws
+    local script first interp leading_ws interp_base arg real_cmd
 
     script="$VENV/bin/nersc-mcp"
     [ -x "$script" ] || return 1
@@ -152,8 +153,27 @@ sanity_ok() {
     interp="${first#\#!}"
     leading_ws="${interp%%[![:space:]]*}"
     interp="${interp#"$leading_ws"}"
-    interp="${interp%%[[:space:]]*}"
-    [ -n "$interp" ] && [ -x "$interp" ]
+    [ -n "$interp" ] || return 1
+
+    set -- $interp
+    interp="${1:-}"
+    [ -n "$interp" ] || return 1
+
+    interp_base="${interp##*/}"
+    if [ "$interp_base" = "env" ]; then
+        real_cmd=""
+        shift
+        for arg in "$@"; do
+            case "$arg" in
+                -S|-*|*=*) continue ;;
+                *) real_cmd="$arg"; break ;;
+            esac
+        done
+        [ -n "$real_cmd" ] || return 1
+        command -v "$real_cmd" >/dev/null 2>&1
+        return $?
+    fi
+    command -v "$interp" >/dev/null 2>&1
 }
 
 select_python

@@ -219,6 +219,28 @@ unset NERSC_MCP_PYTHON
 run_bootstrap "$DATA_DIR" "$COUNTER"
 record_result "healthy fake venv + matching stamp" 0
 
+prepare_case healthy_venv_no_stamp
+make_fake_venv "$DATA_DIR" "$DATA_DIR/venv/bin/python3"
+unset NERSC_MCP_PYTHON
+run_bootstrap "$DATA_DIR" "$COUNTER"
+record_result "healthy fake venv + no stamp first run" 1
+run_bootstrap "$DATA_DIR" "$COUNTER"
+record_result "healthy fake venv + no stamp second run" 1
+
+prepare_case env_shebang_resolvable
+make_fake_venv "$DATA_DIR" "/usr/bin/env python3"
+write_stamp "$DATA_DIR" "$ROOT" "$BOOTSTRAP_PYTHON_SHIM"
+unset NERSC_MCP_PYTHON
+run_bootstrap "$DATA_DIR" "$COUNTER"
+record_result "env console-script shebang with resolvable python3" 0
+
+prepare_case env_shebang_missing
+make_fake_venv "$DATA_DIR" "/usr/bin/env definitely-missing-cmd-xyz"
+write_stamp "$DATA_DIR" "$ROOT" "$BOOTSTRAP_PYTHON_SHIM"
+unset NERSC_MCP_PYTHON
+run_bootstrap "$DATA_DIR" "$COUNTER"
+record_result "env console-script shebang with missing command" 1
+
 prepare_case dead_shebang
 make_fake_venv "$DATA_DIR" "/nonexistent/python3"
 write_stamp "$DATA_DIR" "$ROOT" "$BOOTSTRAP_PYTHON_SHIM"
