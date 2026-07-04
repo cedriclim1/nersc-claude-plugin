@@ -60,6 +60,12 @@ def test_skill_frontmatter_has_name_and_description():
     assert fields["description"]
 
 
+def test_skill_description_triggers_on_storage_vocabulary():
+    description = _frontmatter(_skill_text())["description"]
+    for term in ["quotas", "moving data", "$SCRATCH", "purge"]:
+        assert term in description
+
+
 def test_skill_contains_required_marker_strings():
     text = _skill_text()
     for marker in REQUIRED_MARKERS:

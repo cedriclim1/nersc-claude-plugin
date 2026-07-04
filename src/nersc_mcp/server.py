@@ -24,6 +24,8 @@ from .tools.submit import submit_job as _submit
 
 NERSC_SERVER_INSTRUCTIONS = """Before any NERSC action, the client should arm the deferred nersc tool schemas with one batched ToolSearch call. Use fully-qualified tool names exactly as they appear in the harness deferred-tools list; plugin installs look like mcp__plugin_nersc_nersc__check_storage. Never use bare names with select:, and if the prefix is uncertain, use a keyword query for "nersc" with a high max_results instead. Batch all 11 tools in one ToolSearch call; a second ToolSearch round-trip is a bug, not a plan, and raw shell is not a fallback for unloaded schemas.
 
+For any NERSC filesystem, storage, or quota question, call check_storage before any shell probing.
+
 Never run du, df, find, or other filesystem scans on a login node. Directory sizes and quota come from check_storage; sizing a large tree is an xfer-queue job, not a login-node command."""
 
 app = FastMCP("nersc", instructions=NERSC_SERVER_INSTRUCTIONS)

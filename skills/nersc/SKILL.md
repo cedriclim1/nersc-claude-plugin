@@ -1,8 +1,11 @@
 ---
 name: nersc
 description: Drive NERSC Perlmutter through the nersc MCP tools — submit and monitor
-  SLURM jobs with guardrails, forecast queue waits, diagnose failures, check storage.
-  Use whenever the user wants to run, submit, monitor, or debug work on NERSC.
+  SLURM jobs with guardrails, forecast queue waits, diagnose failures, and check or
+  move/migrate data and projects between $SCRATCH, CFS, and $HOME, including quotas,
+  disk usage, filesystem placement, I/O problems, and purge policy. Use whenever the
+  user wants to run, submit, monitor, or debug work on NERSC, or asks about NERSC
+  storage, quotas, file placement, or moving data/projects between filesystems.
 ---
 
 # /nersc
