@@ -18,6 +18,7 @@ After install:
 - Confirm `tools/list` reports the 11 tools listed below.
 - Use `/nersc` for guided Perlmutter submission, monitoring, queue forecasts, postmortems, and storage checks.
 - Platform note: the plugin targets Perlmutter login nodes (Linux); installing from a non-NERSC machine is not supported until the SFAPI backend in v0.7.
+- MCP registration lives inline in `.claude-plugin/plugin.json`; the repo intentionally has no root `.mcp.json`.
 
 If the install fails:
 
@@ -64,7 +65,7 @@ Then delete the plugin data venv at `~/.claude/plugins/data/<plugin-id>/venv` an
 ## Bare registration fallback
 
 ```bash
-claude mcp add nersc -- /global/cfs/cdirs/m5020/nersc_mcp/run-server.sh
+claude mcp add nersc -- /pscratch/sd/c/cedlim/nersc_mcp/run-server.sh
 ```
 
 Then run `claude` on Perlmutter and ask for `/nersc` help or call a tool directly.
@@ -74,7 +75,7 @@ Then run `claude` on Perlmutter and ask for `/nersc` help or call a tool directl
 ```bash
 .venv/bin/pytest
 python tests/integration/mcp_smoke.py .venv/bin/nersc-mcp
-python tests/integration/mcp_smoke.py ssh perl /global/cfs/cdirs/m5020/nersc_mcp/run-server.sh
+python tests/integration/mcp_smoke.py ssh perl /pscratch/sd/c/cedlim/nersc_mcp/run-server.sh
 ```
 
 Tests use mocked SLURM for unit coverage; the smoke checks exercise MCP stdio and stay read-only/dry-run. Layout: `src/nersc_mcp/server.py` registers tools, `tools/` holds one module per tool, `knowledge.py` holds NERSC facts, and `skills/nersc/SKILL.md` defines the Claude workflow. Read `DESIGN.md` before changing tool semantics; the 11-tool surface and invariants are load-bearing.

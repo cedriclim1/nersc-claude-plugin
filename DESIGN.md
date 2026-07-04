@@ -113,6 +113,9 @@ to any invariant requires user sign-off; a PR that weakens one must be rejected.
     tests/                  # pytest; mock subprocess — tests never call SLURM
     DESIGN.md  CLAUDE.md  README.md
   ```
+- **Plugin manifest:** `.claude-plugin/plugin.json` carries the `mcpServers` config
+  inline. Do not add a repo-root `.mcp.json`; Claude Code treats that as project-scope
+  MCP config and would double-register the server outside the plugin.
 - **`knowledge.py` is the single source of NERSC facts** (QOS limits, charge factors,
   memory ceilings, env exports like `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`).
   Facts cite the wiki concept they came from in a comment. Update facts there, never
@@ -216,12 +219,12 @@ criteria (AC) are testable; a tool's ticket is not done until its ACs pass.
    policy logic only. Target: every tool's AC has a test. No test may invoke real SLURM.
 2. **Integration (from the dev machine):** `tests/integration/mcp_smoke.py` speaks MCP
    JSON-RPC over stdio to the real server on Perlmutter via
-   `ssh perl "cd /global/cfs/cdirs/m5020/nersc_mcp && ./run-server.sh"` — initialize,
+   `ssh perl "cd /pscratch/sd/c/cedlim/nersc_mcp && ./run-server.sh"` — initialize,
    tools/list, `nersc_status`, `submit_job(dry_run=True)`, `queue_advise`. Read-only +
    dry-run only; safe to run any time.
 3. **User-path smoke (before calling a phase done):** on Perlmutter, register the bare
    server path with
-   `claude mcp add nersc -- /global/cfs/cdirs/m5020/nersc_mcp/run-server.sh`, then in a
+   `claude mcp add nersc -- /pscratch/sd/c/cedlim/nersc_mcp/run-server.sh`, then in a
    live Claude Code session on Perlmutter run this five-call sequence: (1)
    `nersc_status`; (2) `submit_job` with a spec for a 1-node, 5-min, debug-QOS CPU job
    running `hostname`; (3) `job_status` until done; (4) `job_postmortem` on that job,
@@ -249,7 +252,7 @@ criteria (AC) are testable; a tool's ticket is not done until its ACs pass.
 - **Git:** repo `github.com/cedriclim1/nersc-claude-plugin` (renamed from nersc-mcp,
   2026-07-03; private until the group-testing milestone). Small commits, imperative
   messages. For this project only, Claude may be listed as an author. After each session:
-  push, then `ssh perl "cd /global/cfs/cdirs/m5020/nersc_mcp && git pull"` (project rule).
+  push, then `ssh perl "cd /pscratch/sd/c/cedlim/nersc_mcp && git pull"` (project rule).
 
 ## 8. Roadmap (user-approved 2026-07-03)
 
