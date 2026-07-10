@@ -25,6 +25,9 @@ record the approval in the ticket before editing this file.
   queue_wait_stats, get_job_context/save_job_profile, submit_job UX warnings. 11 tools
   live; 95 unit tests + MCP stdio smoke green on Perlmutter. Outstanding v0.2 items:
   NM-7 user-path smoke and the live on-Perlmutter plugin-install validation.
+- 2026-07-10 (user-approved, NM-38): v0.2.2 adds first-class Codex distribution
+  alongside Claude Code. The same skill, hook, bootstrap, and exact 11-tool server are
+  shared; no tool semantics or safety invariants change.
 
 This document is written to be executed by agents of varying capability. If you are an
 agent working on this codebase: **read §2 and §7 before writing any code, and re-read the
@@ -43,7 +46,7 @@ sessions, and keeping data/storage hygiene. The target user does:
 
 ```
 ssh perlmutter.nersc.gov
-claude          # Claude Code, with nersc-mcp registered as a stdio MCP server
+claude | codex  # either client, with nersc-mcp registered as a stdio MCP server
 ```
 
 The server wraps the *invisible knowledge* documented in the project wiki (concepts:
@@ -113,9 +116,12 @@ to any invariant requires user sign-off; a PR that weakens one must be rejected.
     tests/                  # pytest; mock subprocess — tests never call SLURM
     DESIGN.md  CLAUDE.md  README.md
   ```
-- **Plugin manifest:** `.claude-plugin/plugin.json` carries the `mcpServers` config
-  inline. Do not add a repo-root `.mcp.json`; Claude Code treats that as project-scope
-  MCP config and would double-register the server outside the plugin.
+- **Plugin manifests:** root `.mcp.json` is the shared MCP definition, and
+  `.codex-plugin/plugin.json` points Codex to it. Claude discovers the root file and its
+  manifest intentionally carries no second inline MCP registration. The shared MCP and
+  default `hooks/hooks.json` commands resolve `PLUGIN_ROOT`, then `CLAUDE_PLUGIN_ROOT`,
+  then `git rev-parse --show-toplevel`, so installed Codex, installed Claude, and
+  checkout discovery from any repository subdirectory use one portable definition.
 - **`knowledge.py` is the single source of NERSC facts** (QOS limits, charge factors,
   memory ceilings, env exports like `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`).
   Facts cite the wiki concept they came from in a comment. Update facts there, never

@@ -1,6 +1,9 @@
-# nersc-claude-plugin
+# NERSC MCP — Claude Code and Codex plugin
 
-`nersc-claude-plugin` v0.2 is a Claude Code plugin for NERSC Perlmutter: an MCP server with **11 knowledge-encoded SLURM/storage tools** plus a `/nersc` skill that carries the guided submit workflow. It is for anyone who runs `ssh perlmutter -> claude`, from materials science, physics, chemistry, ML, and every other domain that needs HPC without becoming a SLURM specialist. The promise is simple: the invisible NERSC knowledge (QOS traps, the `04:00`-means-4-minutes walltime trap, GPU binding, scratch-vs-CFS placement) is encoded so you stop learning it the expensive way.
+NERSC MCP v0.2.2 is a dual Claude Code/Codex plugin for NERSC Perlmutter. It
+provides **exactly 11 knowledge-encoded SLURM/storage tools** plus a shared guided
+workflow for materials science, physics, chemistry, ML, and other NERSC users. The
+same MCP server and safety guardrails run in both clients.
 
 ## Quickstart
 
@@ -18,8 +21,8 @@ After install:
 - Confirm `tools/list` reports the 11 tools listed below.
 - Use `/nersc` for guided Perlmutter submission, monitoring, queue forecasts, postmortems, and storage checks.
 - Platform note: the plugin targets Perlmutter login nodes (Linux); installing from a non-NERSC machine is not supported until the SFAPI backend in v0.7.
-- MCP registration lives inline in `.claude-plugin/plugin.json`; the repo intentionally has no root `.mcp.json`.
-- On Claude Code >= 2.1.121, the plugin's tool schemas load eagerly at session start via `alwaysLoad`; on older versions they are deferred, and the `/nersc` skill's arm-first ToolSearch step covers it.
+- Claude and Codex share root `.mcp.json`; Claude's manifest has no second inline registration, while `.codex-plugin/plugin.json` points Codex to that file.
+- Tool schemas resolve when the MCP server starts; the `/nersc` skill's arm-first ToolSearch step covers clients that defer them.
 
 The plugin bootstrap self-heals its data virtualenv. On startup it rebuilds the venv once when the console script is missing, import sanity fails, the console script shebang points at a missing interpreter, the plugin root moved (detected by build-stamp root mismatch), or an older venv has no build stamp. Run the bootstrap with `--refresh` for an unconditional rebuild.
 
@@ -35,9 +38,90 @@ Then delete the plugin data venv at `~/.claude/plugins/data/<plugin-id>/venv` an
 
 The plugin prompts for two optional settings when enabled: **Python interpreter** and **Install/data directory**. Leave them empty to use `python3` from `PATH` and Claude's plugin data directory.
 
-For bare or ssh-stdio registration, use the equivalent environment variables: `NERSC_MCP_PYTHON` for the Python used to build the venv, and `NERSC_MCP_DATA` for the venv/server data directory. Python selection is `NERSC_MCP_PYTHON`, then the plugin option export, then `python3` from `PATH`; data directory selection is `NERSC_MCP_DATA`, then `CLAUDE_PLUGIN_DATA`, then `~/.local/share/nersc-mcp`.
+For bare or ssh-stdio registration, use the equivalent environment variables: `NERSC_MCP_PYTHON` for the Python used to build the venv, and `NERSC_MCP_DATA` for the venv/server data directory. Python selection is `NERSC_MCP_PYTHON`, then the Claude plugin option export, then `python3` from `PATH`; data directory selection is `NERSC_MCP_DATA`, `PLUGIN_DATA`, `CLAUDE_PLUGIN_DATA`, the Claude plugin option export, then `~/.local/share/nersc-mcp`.
 
 On Perlmutter, run `module load python` before starting Claude, or set **Python interpreter** to an absolute conda/env Python path. The interpreter must be Python 3.10 or newer.
+
+## Codex plugin and recovery
+
+Codex loads `.codex-plugin/plugin.json`, the shared root `.mcp.json`,
+`hooks/hooks.json`, and `skills/`. Claude discovers the same root MCP and hook files;
+its manifest intentionally has no second inline MCP registration. Their portable root
+fallback supports installed Codex, installed Claude, and checkout discovery from any repository subdirectory
+without two manifest registrations. Stage a local development marketplace without
+hand-editing personal config.
+
+The staging command snapshots the exact Git index, refuses unstaged or untracked files,
+and prints the immutable Git tree ID. Use a new empty target for every snapshot:
+
+```bash
+SNAPSHOT="$SCRATCH/nersc-codex-marketplace-v0.2.2"
+scripts/stage-codex-marketplace.sh "$SNAPSHOT"
+codex plugin marketplace add "$SNAPSHOT"
+codex plugin add nersc@nersc-local
+codex plugin list
+codex mcp list
+```
+
+Review the bundled `SessionStart` hook, then start a new task. Plugin hook trust is
+optional: declining it removes convenience context but does not disable the skill or
+MCP server.
+
+Treat staged marketplaces as immutable. To refresh during development, create a new
+snapshot directory and explicitly switch the installed cached copy:
+
+```bash
+NEXT="$SCRATCH/nersc-codex-marketplace-v0.2.2-next"
+scripts/stage-codex-marketplace.sh "$NEXT"
+codex plugin remove nersc@nersc-local
+codex plugin marketplace remove nersc-local
+codex plugin marketplace add "$NEXT"
+codex plugin add nersc@nersc-local
+```
+
+This switches Codex to a fresh cached artifact instead of mutating a source behind an
+installed cache. The old snapshot is inert and may be deleted only after the plugin and
+marketplace source no longer reference it.
+
+To remove the Codex integration while preserving NERSC MCP user state:
+
+```bash
+codex plugin remove nersc@nersc-local
+codex plugin marketplace remove nersc-local
+```
+
+This does not touch `~/.nersc-mcp/state.json` or a configured `NERSC_MCP_DATA` directory.
+Once `$SNAPSHOT` is confirmed to be the staging directory you created, `rm -r --
+"$SNAPSHOT"` removes only that local fixture.
+
+Validate a checkout or cached artifact and inspect discovery with:
+
+```bash
+claude plugin validate .
+python "${PLUGIN_CREATOR_DIR:?set to the plugin-creator skill directory}/scripts/validate_plugin.py" .
+codex plugin list
+codex mcp list
+```
+
+If a cached install is invalid, remove the plugin and marketplace as above, fix and
+validate the checkout, create a new immutable snapshot, add it, and install again.
+Never delete `~/.nersc-mcp/state.json` during recovery. Public marketplace publication
+is outside NM-38.
+
+For bare Codex MCP registration from a Perlmutter checkout:
+
+```bash
+codex mcp add nersc -- ./bin/plugin-bootstrap.sh
+```
+
+Root precedence is `PLUGIN_ROOT`, `CLAUDE_PLUGIN_ROOT`, then the bootstrap script's
+repository root. Data precedence is `NERSC_MCP_DATA`, `PLUGIN_DATA`,
+`CLAUDE_PLUGIN_DATA`, the Claude `nersc_data_dir` plugin option, then
+`~/.local/share/nersc-mcp`.
+A failed rebuild can damage only its disposable plugin `venv/`; it never edits client
+registration, checked-in manifests, a shared Python environment, or user data in
+`~/.nersc-mcp/state.json`. Fix the Python/path/disk error and run
+`bin/plugin-bootstrap.sh --refresh`. Existing state is reused in place.
 
 ## What you can say
 
@@ -76,6 +160,7 @@ On Perlmutter, run `module load python` before starting Claude, or set **Python 
 ## Bare registration fallback
 
 ```bash
+codex mcp add nersc -- /pscratch/sd/c/cedlim/nersc_mcp/run-server.sh
 claude mcp add nersc -- /pscratch/sd/c/cedlim/nersc_mcp/run-server.sh
 ```
 
@@ -84,12 +169,15 @@ Then run `claude` on Perlmutter and ask for `/nersc` help or call a tool directl
 ## Development
 
 ```bash
-.venv/bin/pytest
+PYTHONPATH=src .venv/bin/python -m pytest -q
+python "${PLUGIN_CREATOR_DIR:?set to the plugin-creator skill directory}/scripts/validate_plugin.py" .
 python tests/integration/mcp_smoke.py .venv/bin/nersc-mcp
 python tests/integration/mcp_smoke.py ssh perl /pscratch/sd/c/cedlim/nersc_mcp/run-server.sh
 ```
 
-Tests use mocked SLURM for unit coverage; the smoke checks exercise MCP stdio and stay read-only/dry-run. Layout: `src/nersc_mcp/server.py` registers tools, `tools/` holds one module per tool, `knowledge.py` holds NERSC facts, and `skills/nersc/SKILL.md` defines the Claude workflow. Read `DESIGN.md` before changing tool semantics; the 11-tool surface and invariants are load-bearing.
+Tests mock SLURM. The smoke is read-only plus `submit_job(dry_run=true)`. Retain
+installed-client evidence using `artifacts/NM-38/README.md`; before/after scheduler
+job-ID sets must match. Read `DESIGN.md` before changing tool semantics.
 
 ## Roadmap
 
