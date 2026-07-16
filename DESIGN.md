@@ -25,6 +25,9 @@ record the approval in the ticket before editing this file.
   queue_wait_stats, get_job_context/save_job_profile, submit_job UX warnings. 11 tools
   live; 95 unit tests + MCP stdio smoke green on Perlmutter. Outstanding v0.2 items:
   NM-7 user-path smoke and the live on-Perlmutter plugin-install validation.
+- 2026-07-10 (user-approved, NM-38): v0.2.2 adds first-class Codex distribution
+  alongside Claude Code. The same skill, hook, bootstrap, and exact 11-tool server are
+  shared; no tool semantics or safety invariants change.
 
 This document is written to be executed by agents of varying capability. If you are an
 agent working on this codebase: **read §2 and §7 before writing any code, and re-read the
@@ -43,7 +46,7 @@ sessions, and keeping data/storage hygiene. The target user does:
 
 ```
 ssh perlmutter.nersc.gov
-claude          # Claude Code, with nersc-mcp registered as a stdio MCP server
+claude | codex  # either client, with nersc-mcp registered as a stdio MCP server
 ```
 
 The server wraps the *invisible knowledge* documented in the project wiki (concepts:
@@ -113,9 +116,12 @@ to any invariant requires user sign-off; a PR that weakens one must be rejected.
     tests/                  # pytest; mock subprocess — tests never call SLURM
     DESIGN.md  CLAUDE.md  README.md
   ```
-- **Plugin manifest:** `.claude-plugin/plugin.json` carries the `mcpServers` config
-  inline. Do not add a repo-root `.mcp.json`; Claude Code treats that as project-scope
-  MCP config and would double-register the server outside the plugin.
+- **Plugin manifests:** root `.mcp.json` is the shared MCP definition, and
+  `.codex-plugin/plugin.json` points Codex to it. Claude discovers the root file and its
+  manifest intentionally carries no second inline MCP registration. The shared MCP and
+  default `hooks/hooks.json` commands resolve `PLUGIN_ROOT`, then `CLAUDE_PLUGIN_ROOT`,
+  then `git rev-parse --show-toplevel`, so installed Codex, installed Claude, and
+  checkout discovery from any repository subdirectory use one portable definition.
 - **`knowledge.py` is the single source of NERSC facts** (QOS limits, charge factors,
   memory ceilings, env exports like `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`).
   Facts cite the wiki concept they came from in a comment. Update facts there, never
@@ -166,10 +172,17 @@ criteria (AC) are testable; a tool's ticket is not done until its ACs pass.
    (`SLURM_JOB_ID=<JID> srun --jobid=<JID> ...`) — the agent-shell ergonomics fix
    (friction-points §2). AC: returns the granted JID; the response includes the srun
    pattern verbatim.
-8. **`check_storage(path?)`** — quotas (`showquota`), placement advice for a given need
-   (software → /global/common; job I/O → $SCRATCH with purge warning; shared data → CFS;
-   never $HOME for parallel I/O), flock-on-CFS warning when relevant. AC: advice table
-   unit-tested; quota parse handles the real command output.
+8. **`check_storage(path?)`** — quotas (`showquota -J`, table fallback), placement
+   advice for a given need (software → /global/common; job I/O → $SCRATCH with purge
+   warning; shared data → CFS; never $HOME for parallel I/O), flock-on-CFS warning when
+   relevant. Also reports project-level context (amendment 2026-07-04, NM-36,
+   user-approved): CFS project quotas (`showquota -J -N <proj>`) and
+   `/global/common/software/<proj>` quotas (`--cmn`) for each project the user belongs
+   to (groups ∩ existing cdirs), with near-quota warnings at ≥85% space or inodes —
+   conda envs and shared software live there and are inode-heavy. HPSS quotas
+   (`--hpss`) deliberately deferred to a follow-up. AC: advice table
+   unit-tested; JSON + table quota parses handle the real command output;
+   project/common rows and the near-quota warning fixture-tested.
 9. **`queue_wait_stats(constraint, qos, hours, nodes=1, window_days=30)`** — expected
    queue wait for a job shape, from NERSC's queue-wait database (added by amendment
    2026-07-03, NM-10). Data source (probed and verified unauthenticated, from both

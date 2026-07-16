@@ -88,6 +88,14 @@ def main(argv):
         st = send("tools/call", {"name": "nersc_status", "arguments": {}})
         body = json.loads(st["content"][0]["text"])
         print(f"nersc_status ok={body['ok']} queued={len(body['data']['queued']) if body['ok'] else 'n/a'}")
+
+        cs = send("tools/call", {"name": "check_storage", "arguments": {}})
+        body = json.loads(cs["content"][0]["text"])
+        if not body["ok"] or not body["data"].get("quotas"):
+            failures.append(f"check_storage wrong: {body}")
+        print(f"check_storage ok quotas={len(body['data'].get('quotas', []))} "
+              f"projects={body['data'].get('projects')} "
+              f"common={bool(body['data'].get('global_common'))}")
     finally:
         proc.stdin.close()
         proc.wait(timeout=10)

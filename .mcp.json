@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "nersc": {
+      "command": "sh",
+      "args": [
+        "-c",
+        "root=${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-}}; if [ -z \"$root\" ]; then root=$(git rev-parse --show-toplevel) || exit 1; fi; exec \"$root/bin/plugin-bootstrap.sh\""
+      ],
+      "env_vars": ["NERSC_MCP_PYTHON", "NERSC_MCP_DATA"]
+    }
+  }
+}

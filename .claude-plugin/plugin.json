@@ -1,6 +1,6 @@
 {
   "name": "nersc",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "NERSC Perlmutter tools: SLURM job submission with guardrails, queue intelligence, storage and postmortem analysis",
   "author": {
     "name": "cedriclim1",
@@ -27,16 +27,6 @@
       "title": "Install/data directory",
       "description": "Override where the plugin virtualenv and server data live. Leave empty to use the default plugin data directory.",
       "required": false
-    }
-  },
-  "mcpServers": {
-    "nersc": {
-      "command": "${CLAUDE_PLUGIN_ROOT}/bin/plugin-bootstrap.sh",
-      "alwaysLoad": true,
-      "env": {
-        "NERSC_MCP_PYTHON": "${user_config.nersc_python}",
-        "NERSC_MCP_DATA": "${user_config.nersc_data_dir}"
-      }
     }
   },
   "skills": "./skills/"

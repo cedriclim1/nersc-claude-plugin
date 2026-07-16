@@ -1,4 +1,5 @@
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -26,10 +27,13 @@ def test_session_start_hook_json_registers_context_command():
         if hook.get("type") == "command"
     ]
     assert commands
-    assert any(
-        "${CLAUDE_PLUGIN_ROOT}" in command and "session-context.sh" in command
-        for command in commands
-    )
+    assert len(commands) == 1
+    command = commands[0]
+    assert "${PLUGIN_ROOT" in command
+    assert "${CLAUDE_PLUGIN_ROOT" in command
+    assert "git rev-parse --show-toplevel" in command
+    assert "$PWD" not in command
+    assert "session-context.sh" in command
 
 
 def test_session_context_script_is_static_and_fast():
@@ -57,8 +61,15 @@ def test_session_context_script_is_tracked_executable():
 
 @pytest.mark.skipif(shutil.which("sh") is None, reason="sh is not available")
 def test_session_context_script_outputs_compact_context():
+    data = json.loads(HOOKS_JSON.read_text(encoding="utf-8"))
+    command = data["hooks"]["SessionStart"][0]["hooks"][0]["command"]
+    env = os.environ.copy()
+    env.pop("PLUGIN_ROOT", None)
+    env.pop("CLAUDE_PLUGIN_ROOT", None)
     result = subprocess.run(
-        ["sh", str(HOOK_SCRIPT)],
+        ["sh", "-c", command],
+        cwd=ROOT / "tests",
+        env=env,
         capture_output=True,
         text=True,
         timeout=5,

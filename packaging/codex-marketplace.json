@@ -1,0 +1,20 @@
+{
+  "name": "nersc-local",
+  "interface": {
+    "displayName": "NERSC MCP local development"
+  },
+  "plugins": [
+    {
+      "name": "nersc",
+      "source": {
+        "source": "local",
+        "path": "./plugins/nersc"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

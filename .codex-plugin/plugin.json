@@ -1,0 +1,27 @@
+{
+  "name": "nersc",
+  "version": "0.2.2",
+  "description": "NERSC Perlmutter tools for guarded SLURM jobs, queue intelligence, storage, and postmortems",
+  "author": {
+    "name": "cedriclim1",
+    "url": "https://github.com/cedriclim1"
+  },
+  "repository": "https://github.com/cedriclim1/nersc-claude-plugin",
+  "license": "MIT",
+  "keywords": ["nersc", "hpc", "slurm", "perlmutter", "mcp"],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "NERSC",
+    "shortDescription": "Guarded Perlmutter jobs and storage",
+    "longDescription": "Drive NERSC Perlmutter through 11 knowledge-encoded MCP tools and a guided submission skill.",
+    "developerName": "cedriclim1",
+    "category": "Developer Tools",
+    "capabilities": ["Interactive", "Read", "Write"],
+    "defaultPrompt": [
+      "Show my NERSC queue and explain pending jobs.",
+      "Prepare a guarded dry-run for my SLURM job.",
+      "Check where my NERSC data should live."
+    ]
+  }
+}

@@ -7,12 +7,12 @@ if [ "${1:-}" = "--refresh" ]; then
     shift
 fi
 
-ROOT="${CLAUDE_PLUGIN_ROOT:-}"
+ROOT="${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-}}"
 if [ -z "$ROOT" ]; then
     ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 fi
 
-DATA="${NERSC_MCP_DATA:-${CLAUDE_PLUGIN_DATA:-$HOME/.local/share/nersc-mcp}}"
+DATA="${NERSC_MCP_DATA:-${PLUGIN_DATA:-${CLAUDE_PLUGIN_DATA:-${CLAUDE_PLUGIN_OPTION_NERSC_DATA_DIR:-$HOME/.local/share/nersc-mcp}}}}"
 VENV="$DATA/venv"
 STAMP="$DATA/build-stamp"
 PY="${NERSC_MCP_PYTHON:-}"

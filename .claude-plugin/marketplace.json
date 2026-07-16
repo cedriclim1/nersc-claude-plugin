@@ -8,7 +8,7 @@
       "name": "nersc",
       "source": "./",
       "description": "NERSC Perlmutter MCP server + /nersc skill",
-      "version": "0.2.1"
+      "version": "0.2.2"
     }
   ],
   "description": "Single-plugin marketplace for the NERSC Perlmutter Claude Code plugin: knowledge-encoded SLURM, queue-forecast, and storage tools plus the /nersc guided-submission skill."

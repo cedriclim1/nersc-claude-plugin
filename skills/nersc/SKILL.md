@@ -8,21 +8,23 @@ description: Drive NERSC Perlmutter through the nersc MCP tools — submit and m
   storage, quotas, file placement, or moving data/projects between filesystems.
 ---
 
-# /nersc
+# NERSC workflow
 
 Use this skill whenever the user wants to run, submit, monitor, or debug work on NERSC
 Perlmutter.
 
 ## Arm the tools first
 
-(On Claude Code >= 2.1.121, schemas are already loaded via `alwaysLoad`; if the nersc tools are directly callable, skip the ToolSearch step.)
+(On Claude Code >= 2.1.121 and Codex plugin installs, schemas may already be loaded; if
+the nersc tools are directly callable, skip the ToolSearch step.)
 
 Before ANY other action on ANY /nersc request, run ONE batched ToolSearch call that
 loads every nersc tool schema. Never call the tools before their schemas are loaded;
 never fall back to raw shell because a tool "isn't available".
 
-Use the FULLY-QUALIFIED tool names exactly as they appear in the harness's deferred-tools
-list. Plugin installs look like `mcp__plugin_nersc_nersc__check_storage`. NEVER use bare
+Use the FULLY-QUALIFIED tool names exactly as they appear in the host's deferred-tools
+list. Claude installs look like `mcp__plugin_nersc_nersc__check_storage`; Codex may
+expose `mcp__nersc__check_storage` or load the tools directly. NEVER use bare
 names like `check_storage`: `select:` is exact-match and returns zero results for bare
 names, silently.
 
@@ -40,11 +42,17 @@ For a plugin install, the one `select:` batch should arm these 11 registered too
 - `mcp__plugin_nersc_nersc__get_job_context`
 - `mcp__plugin_nersc_nersc__save_job_profile`
 
-If the harness shows a different prefix, use that prefix with the same 11 registered tool
+If the host shows a different prefix, use that prefix with the same 11 registered tool
 suffixes. If unsure of the prefix, use a keyword query (`ToolSearch "nersc"` with a high
 max_results) instead of `select:`; keyword search matches substrings of qualified names.
 Batch ALL tools you might need in the ONE call. A second ToolSearch round-trip is a bug,
 not a plan.
+
+If the host has no ToolSearch surface, use the already-registered MCP tools directly.
+Never replace an unavailable or untrusted plugin hook with raw SLURM or filesystem shell
+commands: ask the user to enable the nersc MCP server or use the documented bare MCP
+registration. Hooks add context only; declining hook trust does not disable the skill or
+MCP server.
 
 NEVER run `du`, `df`, `find`, or other filesystem scans on a login node. Directory sizes
 and quota come from `check_storage`; sizing a large tree is an xfer-queue job, not a
